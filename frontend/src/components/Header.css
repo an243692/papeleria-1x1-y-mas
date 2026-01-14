@@ -115,3 +115,18 @@
         transform: translateY(-4px);
     }
 }
+
+/* User Menu Dropdown */
+.glass-panel {
+    background: white !important;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+    border: 1px solid rgba(0, 0, 0, 0.05);
+    z-index: 1000;
+}
+
+/* Adjust logo text for very small screens */
+@media (max-width: 380px) {
+    .logo-text {
+        font-size: 0.9rem !important;
+    }
+}

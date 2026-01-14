@@ -19,8 +19,8 @@ const Header = ({ onOpenSidebar, onOpenLogin, onOpenCart }) => {
                     <Menu className="w-6 h-6 text-gray-700" />
                 </button>
                 <Link to="/" className="group relative cursor-pointer no-underline flex flex-col leading-tight">
-                    <span className="text-primary-blue font-bold text-lg sm:text-2xl group-hover:drop-shadow-lg transition-all">Papelería</span>
-                    <span className="text-primary-red font-bold text-lg sm:text-2xl group-hover:drop-shadow-lg transition-all">1x1 y más</span>
+                    <span className="text-primary-blue font-bold text-sm sm:text-2xl logo-text group-hover:drop-shadow-lg transition-all">Papelería</span>
+                    <span className="text-primary-red font-bold text-sm sm:text-2xl logo-text group-hover:drop-shadow-lg transition-all">1x1 y más</span>
                     <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-primary-blue to-primary-red transition-all duration-300 group-hover:w-full rounded-full"></span>
                 </Link>
             </div>
