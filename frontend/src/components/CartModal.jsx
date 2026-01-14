@@ -33,13 +33,11 @@ const CartModal = ({ isOpen, onClose }) => {
             const session = await response.json();
 
             if (session.url) {
-                // Redirigir directamente a la página de pago de Stripe
                 window.location.href = session.url;
-            } else if (session.id) {
-                // Fallback si por alguna razón no viene la URL pero sí el ID
-                window.location.href = `https://checkout.stripe.com/pay/${session.id}`;
             } else {
-                throw new Error(session.error || 'Error al crear la sesión de pago. Verifica que el backend esté configurado correctamente.');
+                alert('El servidor no devolvió una URL de pago. Revisa los logs de Render.');
+                console.error('Session response:', session);
+                throw new Error(session.error || 'No se recibió la URL de pago');
             }
         } catch (error) {
             console.error('Checkout error:', error);

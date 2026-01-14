@@ -17,19 +17,26 @@ export const CartProvider = ({ children }) => {
     }, [cart]);
 
     const addToCart = (product) => {
+        let isNew = false;
         setCart(prev => {
             const existing = prev.find(item => item.id === product.id);
             if (existing) {
-                toast.success(`Cantidad actualizada: ${product.name}`);
+                isNew = false;
                 return prev.map(item =>
                     item.id === product.id
                         ? { ...item, quantity: item.quantity + 1 }
                         : item
                 );
             }
-            toast.success(`${product.name} agregado al carrito`);
+            isNew = true;
             return [...prev, { ...product, quantity: 1 }];
         });
+
+        if (isNew) {
+            toast.success(`${product.name} agregado al carrito`);
+        } else {
+            toast.success(`Cantidad actualizada: ${product.name}`);
+        }
     };
 
     const removeFromCart = (productId) => {

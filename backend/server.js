@@ -95,16 +95,22 @@ app.post('/create-checkout-session', async (req, res) => {
             quantity: item.quantity,
         }));
 
+        const clientUrl = process.env.CLIENT_URL?.replace(/\/$/, '');
+
         const session = await stripe.checkout.sessions.create({
             payment_method_types: ['card'],
             line_items: lineItems,
             mode: 'payment',
-            success_url: `${process.env.CLIENT_URL}/success?session_id={CHECKOUT_SESSION_ID}`,
-            cancel_url: `${process.env.CLIENT_URL}/cart`,
+            success_url: `${clientUrl}/success?session_id={CHECKOUT_SESSION_ID}`,
+            cancel_url: `${clientUrl}/cart`,
             metadata: {
                 orderId: orderId
             },
         });
+
+        if (!session.url) {
+            throw new Error('Stripe no generó una URL de pago válida.');
+        }
 
         res.json({ id: session.id, url: session.url });
     } catch (error) {
