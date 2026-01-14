@@ -1,9 +1,53 @@
 import React from 'react';
-import { X, ShoppingBag } from 'lucide-react';
+import { X, ShoppingBag, Loader2 } from 'lucide-react';
 import { useCart } from '../context/CartContext';
+import toast from 'react-hot-toast';
+
+const BACKEND_URL = 'https://papeleria-backend-an24.onrender.com'; // Placeholder, user will update this
 
 const CartModal = ({ isOpen, onClose }) => {
     const { cart, removeFromCart, updateQuantity, cartTotal } = useCart();
+    const [isLoading, setIsLoading] = React.useState(false);
+
+    const handleCheckout = async () => {
+        setIsLoading(true);
+        try {
+            const response = await fetch(`${BACKEND_URL}/create-checkout-session`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    items: cart.map(item => ({
+                        name: item.name,
+                        price: item.wholesalePrice && item.quantity >= (item.wholesaleQuantity || 4)
+                            ? item.wholesalePrice
+                            : item.price,
+                        quantity: item.quantity,
+                        imageUrl: item.images?.[0]
+                    })),
+                    orderId: `ORD-${Date.now()}`
+                }),
+            });
+
+            const session = await response.json();
+
+            if (session.id) {
+                // Stripe redirect usually involves window.location
+                const stripe = window.Stripe('pk_test_51QQM0NAnGzXhW0uO5V9L4jU9A9iV4L9iV4L9iV4L9iV4L9iV4L9iV4L9iV4L9iV4L'); // User will need to replace this
+                // If the user doesn't have the script yet, we can simple redirect if the backend returns a URL
+                // Actually the backend returns just ID, so we need stripe-js or just redirect to session.url if we fix backend
+                window.location.href = `https://checkout.stripe.com/pay/${session.id}`;
+            } else {
+                throw new Error(session.error || 'Error al crear la sesión de pago');
+            }
+        } catch (error) {
+            console.error('Checkout error:', error);
+            toast.error('Ocurrió un error al procesar el pago. Por favor intenta de nuevo.');
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
     if (!isOpen) return null;
 
@@ -93,13 +137,18 @@ const CartModal = ({ isOpen, onClose }) => {
                                 </span>
                             </div>
                             <button
-                                onClick={() => {
-                                    onClose();
-                                    // Navigate to checkout
-                                }}
-                                className="w-full bg-gradient-to-r from-primary-blue to-primary-red text-white py-3 rounded-full font-semibold hover:scale-105 transition-transform"
+                                onClick={handleCheckout}
+                                disabled={isLoading}
+                                className="w-full bg-gradient-to-r from-primary-blue to-primary-red text-white py-3 rounded-full font-semibold hover:scale-105 transition-transform flex items-center justify-center gap-2 disabled:opacity-70 disabled:hover:scale-100"
                             >
-                                Proceder al Pago
+                                {isLoading ? (
+                                    <>
+                                        <Loader2 className="w-5 h-5 animate-spin" />
+                                        Procesando...
+                                    </>
+                                ) : (
+                                    'Proceder al Pago'
+                                )}
                             </button>
                         </div>
                     </>

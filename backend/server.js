@@ -8,17 +8,28 @@ const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 // Inicializar Firebase Admin
 // SE ESPERA QUE LA VARIABLE DE ENTORNO FIREBASE_CREDENTIALS APUNTE AL ARCHIVO JSON
 // O QUE EL USUARIO COLOQUE 'serviceAccountKey.json' EN LA RAIZ DEL BACKEND
+// Inicializar Firebase Admin
 try {
-    const serviceAccount = process.env.FIREBASE_CREDENTIALS
-        ? require(process.env.FIREBASE_CREDENTIALS)
-        : require('./serviceAccountKey.json');
+    let serviceAccount;
+    if (process.env.FIREBASE_CREDENTIALS) {
+        try {
+            // Intenta parsear si es un string JSON directamente
+            serviceAccount = JSON.parse(process.env.FIREBASE_CREDENTIALS);
+        } catch (e) {
+            // Si no es JSON, asume que es una ruta de archivo
+            serviceAccount = require(process.env.FIREBASE_CREDENTIALS);
+        }
+    } else {
+        serviceAccount = require('./serviceAccountKey.json');
+    }
 
     admin.initializeApp({
         credential: admin.credential.cert(serviceAccount),
         databaseURL: "https://papeleria-1x1-y-mas-default-rtdb.firebaseio.com"
     });
 } catch (error) {
-    console.warn("Advertencia: No se pudo inicializar Firebase Admin. Verifique serviceAccountKey.json");
+    console.warn("Advertencia: No se pudo inicializar Firebase Admin automáticamente.");
+    console.error(error);
 }
 
 const db = admin.firestore();

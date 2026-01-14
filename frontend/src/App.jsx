@@ -20,6 +20,9 @@ import Hero from './components/Hero';
 import Services from './components/Services';
 import Footer from './components/Footer';
 import WhatsAppButton from './components/WhatsAppButton';
+import Success from './pages/Success';
+
+const BACKEND_URL = 'https://papeleria-backend-an24.onrender.com'; // Placeholder, user will update this
 
 function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -95,65 +98,71 @@ function App() {
             />
 
             <main className="flex-grow">
-              {/* Landing Sections */}
-              <Hero />
-              <Services onCategoryClick={(category) => {
-                setFilters({ ...filters, categories: [category] });
-                document.getElementById('catalog')?.scrollIntoView({ behavior: 'smooth' });
-              }} />
+              <Routes>
+                <Route path="/" element={
+                  <>
+                    <Hero />
+                    <Services onCategoryClick={(category) => {
+                      setFilters({ ...filters, categories: [category] });
+                      document.getElementById('catalog')?.scrollIntoView({ behavior: 'smooth' });
+                    }} />
 
-              {/* Catalog Section */}
-              <section id="catalog" className="container mx-auto px-4 sm:px-6 py-12">
-                <div className="text-center mb-12">
-                  <h2 className="text-4xl font-secondary font-bold text-primary-blue drop-shadow-sm inline-block">
-                    Nuestro Catálogo
-                  </h2>
-                  <div className="h-1 w-24 bg-primary-blue mx-auto mt-2 rounded-full"></div>
-                </div>
+                    {/* Catalog Section */}
+                    <section id="catalog" className="container mx-auto px-4 sm:px-6 py-12">
+                      <div className="text-center mb-12">
+                        <h2 className="text-4xl font-secondary font-bold text-primary-blue drop-shadow-sm inline-block">
+                          Nuestro Catálogo
+                        </h2>
+                        <div className="h-1 w-24 bg-primary-blue mx-auto mt-2 rounded-full"></div>
+                      </div>
 
-                {loading ? (
-                  <div className="flex items-center justify-center min-h-[400px]">
-                    <div className="animate-spin rounded-full h-12 w-12 border-4 border-purple-200 border-t-purple-600"></div>
-                  </div>
-                ) : filteredProducts.length === 0 ? (
-                  <div className="text-center py-12">
-                    <p className="text-xl text-gray-600">No se encontraron productos</p>
-                  </div>
-                ) : (
-                  <div className="space-y-12">
-                    {/* Group products by category */}
-                    {Object.entries(
-                      filteredProducts.reduce((acc, product) => {
-                        const category = product.category || 'Otros';
-                        if (!acc[category]) acc[category] = [];
-                        acc[category].push(product);
-                        return acc;
-                      }, {})
-                    ).map(([category, items]) => (
-                      <div key={category} className="space-y-6">
-                        {/* Category Header */}
-                        <div className="flex items-center gap-4">
-                          <h3 className="text-2xl font-bold text-primary-red uppercase tracking-wide">
-                            {category}
-                          </h3>
-                          <div className="h-px flex-gro bg-gray-200"></div>
+                      {loading ? (
+                        <div className="flex items-center justify-center min-h-[400px]">
+                          <div className="animate-spin rounded-full h-12 w-12 border-4 border-purple-200 border-t-purple-600"></div>
                         </div>
+                      ) : filteredProducts.length === 0 ? (
+                        <div className="text-center py-12">
+                          <p className="text-xl text-gray-600">No se encontraron productos</p>
+                        </div>
+                      ) : (
+                        <div className="space-y-12">
+                          {/* Group products by category */}
+                          {Object.entries(
+                            filteredProducts.reduce((acc, product) => {
+                              const category = product.category || 'Otros';
+                              if (!acc[category]) acc[category] = [];
+                              acc[category].push(product);
+                              return acc;
+                            }, {})
+                          ).map(([category, items]) => (
+                            <div key={category} className="space-y-6">
+                              {/* Category Header */}
+                              <div className="flex items-center gap-4">
+                                <h3 className="text-2xl font-bold text-primary-red uppercase tracking-wide">
+                                  {category}
+                                </h3>
+                                <div className="h-px flex-gro bg-gray-200"></div>
+                              </div>
 
-                        {/* Products Grid for this category */}
-                        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
-                          {items.map(product => (
-                            <ProductContainer
-                              key={product.id}
-                              product={product}
-                              onOpenDetail={setSelectedProduct}
-                            />
+                              {/* Products Grid for this category */}
+                              <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
+                                {items.map(product => (
+                                  <ProductContainer
+                                    key={product.id}
+                                    product={product}
+                                    onOpenDetail={setSelectedProduct}
+                                  />
+                                ))}
+                              </div>
+                            </div>
                           ))}
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </section>
+                      )}
+                    </section>
+                  </>
+                } />
+                <Route path="/success" element={<Success />} />
+              </Routes>
             </main>
 
             <Footer />
