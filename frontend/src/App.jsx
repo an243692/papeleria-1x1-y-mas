@@ -22,7 +22,7 @@ import Footer from './components/Footer';
 import WhatsAppButton from './components/WhatsAppButton';
 import Success from './pages/Success';
 
-const BACKEND_URL = 'https://papeleria-backend-an24.onrender.com'; // Placeholder, user will update this
+const BACKEND_URL = 'https://papeleria-1x1-y-mas.onrender.com';
 
 function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);

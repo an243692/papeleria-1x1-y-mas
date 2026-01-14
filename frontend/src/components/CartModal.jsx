@@ -3,7 +3,7 @@ import { X, ShoppingBag, Loader2 } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import toast from 'react-hot-toast';
 
-const BACKEND_URL = 'https://papeleria-backend-an24.onrender.com'; // Placeholder, user will update this
+const BACKEND_URL = 'https://papeleria-1x1-y-mas.onrender.com';
 
 const CartModal = ({ isOpen, onClose }) => {
     const { cart, removeFromCart, updateQuantity, cartTotal } = useCart();
@@ -34,7 +34,7 @@ const CartModal = ({ isOpen, onClose }) => {
 
             if (session.id) {
                 // Stripe redirect usually involves window.location
-                const stripe = window.Stripe('pk_test_51QQM0NAnGzXhW0uO5V9L4jU9A9iV4L9iV4L9iV4L9iV4L9iV4L9iV4L9iV4L9iV4L'); // User will need to replace this
+                const stripe = window.Stripe('pk_test_51SorIiAy1anTe2F0UMk0PVsooxky7SUAuxqU4PvmwM3GrwcY7RetFdzl5DiEm8pqoKkY3gNCu4odmfIsxnd2iFK9003LFXLTSr');
                 // If the user doesn't have the script yet, we can simple redirect if the backend returns a URL
                 // Actually the backend returns just ID, so we need stripe-js or just redirect to session.url if we fix backend
                 window.location.href = `https://checkout.stripe.com/pay/${session.id}`;
