@@ -6,25 +6,25 @@ const Services = ({ onCategoryClick }) => {
         {
             name: 'Papelería Principal',
             description: 'Oficina y escuela.',
-            image: '/category_stationery_1768432436180.png',
+            image: '/cat_stationery.png',
             filter: 'Papelería',
         },
         {
             name: 'Manualidades & Foamy',
             description: 'Crea magia.',
-            image: '/category_foamy_crafts_1768432449562.png',
+            image: '/cat_foamy.png',
             filter: 'Foamy',
         },
         {
             name: 'Arte Profesional',
             description: 'Pinturas y lienzos.',
-            image: '/category_art_supplies_1768432462500.png',
+            image: '/cat_art.png',
             filter: 'Arte',
         },
         {
             name: 'Escolar & Más',
             description: 'Todo para aprender.',
-            image: 'https://images.unsplash.com/photo-1456735190827-d1262f71b8a3?auto=format&fit=crop&q=80&w=800',
+            image: 'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?auto=format&fit=crop&q=80&w=800',
             filter: 'Escolar',
         }
     ];
