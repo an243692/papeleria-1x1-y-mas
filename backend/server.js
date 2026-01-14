@@ -106,7 +106,7 @@ app.post('/create-checkout-session', async (req, res) => {
             },
         });
 
-        res.json({ id: session.id });
+        res.json({ id: session.id, url: session.url });
     } catch (error) {
         console.error("Error creando sesión:", error);
         res.status(500).json({ error: error.message });

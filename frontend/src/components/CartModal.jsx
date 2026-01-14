@@ -32,14 +32,14 @@ const CartModal = ({ isOpen, onClose }) => {
 
             const session = await response.json();
 
-            if (session.id) {
-                // Stripe redirect usually involves window.location
-                const stripe = window.Stripe('pk_test_51SorIiAy1anTe2F0UMk0PVsooxky7SUAuxqU4PvmwM3GrwcY7RetFdzl5DiEm8pqoKkY3gNCu4odmfIsxnd2iFK9003LFXLTSr');
-                // If the user doesn't have the script yet, we can simple redirect if the backend returns a URL
-                // Actually the backend returns just ID, so we need stripe-js or just redirect to session.url if we fix backend
+            if (session.url) {
+                // Redirigir directamente a la página de pago de Stripe
+                window.location.href = session.url;
+            } else if (session.id) {
+                // Fallback si por alguna razón no viene la URL pero sí el ID
                 window.location.href = `https://checkout.stripe.com/pay/${session.id}`;
             } else {
-                throw new Error(session.error || 'Error al crear la sesión de pago');
+                throw new Error(session.error || 'Error al crear la sesión de pago. Verifica que el backend esté configurado correctamente.');
             }
         } catch (error) {
             console.error('Checkout error:', error);
