@@ -1,0 +1,92 @@
+/* Product Card Styles */
+.product-card {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.product-card:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.12);
+}
+
+/* Image container */
+.product-card img {
+    transition: transform 0.3s ease;
+}
+
+.product-card:hover img {
+    transform: scale(1.05);
+}
+
+/* Category badge animation */
+.product-card .category-badge {
+    animation: slideInDown 0.5s ease-out;
+}
+
+@keyframes slideInDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Button hover effects */
+.product-card button {
+    transition: all 0.2s ease;
+}
+
+.product-card button:active {
+    transform: scale(0.95);
+}
+
+/* Stock badge pulse animation */
+@keyframes pulse {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.8;
+    }
+}
+
+.product-card .stock-badge {
+    animation: pulse 2s ease-in-out infinite;
+}
+
+/* Image navigation buttons */
+.product-card .nav-button {
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.product-card:hover .nav-button {
+    opacity: 1;
+}
+
+/* Price highlight */
+.product-card .price-highlight {
+    position: relative;
+}
+
+.product-card .price-highlight::after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, #a855f7, #ec4899);
+    transform: scaleX(0);
+    transition: transform 0.3s ease;
+}
+
+.product-card:hover .price-highlight::after {
+    transform: scaleX(1);
+}

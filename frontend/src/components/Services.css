@@ -1,0 +1,71 @@
+/* Services/Categories Carousel Styles */
+.categories-carousel-container {
+    width: 100%;
+    overflow: hidden;
+    position: relative;
+    padding: 20px 0;
+}
+
+.categories-carousel {
+    display: flex;
+    gap: 2rem;
+    animation: scroll-horizontal 25s linear infinite;
+    width: fit-content;
+}
+
+.category-banner-item {
+    flex-shrink: 0;
+    width: 180px;
+    height: 80px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.category-banner-item img {
+    transition: transform 0.3s ease;
+}
+
+/* Pause animation on hover */
+.categories-carousel:hover {
+    animation-play-state: paused;
+}
+
+.category-banner-item:hover {
+    transform: translateY(-8px);
+}
+
+/* Infinite scroll animation */
+@keyframes scroll-horizontal {
+    0% {
+        transform: translateX(0);
+    }
+
+    100% {
+        transform: translateX(-33.333%);
+        /* Move by 1/3 since we have 3 copies */
+    }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .category-banner-item {
+        width: 150px;
+        height: 120px;
+    }
+
+    .categories-carousel {
+        animation-duration: 20s;
+        /* Faster on mobile */
+        gap: 1.5rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .category-banner-item {
+        width: 205px;
+        height: 100px;
+    }
+
+    .categories-carousel {
+        gap: 1rem;
+    }
+}

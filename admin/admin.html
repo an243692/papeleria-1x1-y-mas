@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel Administrador - Un Mundo de Color</title>
+    <link rel="stylesheet" href="admin.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Chewy&family=Fredoka:wght@300..700&family=Inter:wght@300;400;500;600;700&family=Poppins:wght@300;400;500;600;700&family=Permanent+Marker&family=Josefin+Sans:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Firebase SDKs - Cargar en orden correcto -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        // Verificar que Firebase esté cargado
+        function checkFirebase() {
+            if (typeof firebase === 'undefined') {
+                console.error('Firebase no se cargó correctamente');
+                setTimeout(checkFirebase, 500); // Reintentar cada 500ms
+                return;
+            }
+            console.log('Firebase cargado correctamente:', firebase);
+        }
+
+        // Verificar cuando la página cargue
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', checkFirebase);
+        } else {
+            checkFirebase();
+        }
+    </script>
+</head>
+
+<body>
+    <div class="admin-container">
+        <!-- Header -->
+        <header class="admin-header">
+            <h1><i class="fas fa-cog"></i> Panel Administrador</h1>
+            <div class="stats-bar">
+                <div class="stat-item">
+                    <i class="fas fa-shopping-cart"></i>
+                    <div>
+                        <span class="stat-value" id="totalOrders">0</span>
+                        <span class="stat-label">Pedidos</span>
+                    </div>
+                </div>
+                <div class="stat-item">
+                    <i class="fas fa-dollar-sign"></i>
+                    <div>
+                        <span class="stat-value" id="totalRevenue">$0</span>
+                        <span class="stat-label">Ingresos</span>
+                    </div>
+                </div>
+                <div class="stat-item">
+                    <i class="fas fa-users"></i>
+                    <div>
+                        <span class="stat-value" id="totalUsers">0</span>
+                        <span class="stat-label">Usuarios</span>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Navigation Tabs -->
+        <nav class="admin-tabs">
+            <button class="tab-btn active" data-tab="products">
+                <i class="fas fa-box"></i> Productos
+            </button>
+            <button class="tab-btn" data-tab="orders">
+                <i class="fas fa-shopping-cart"></i> Pedidos
+            </button>
+            <button class="tab-btn" data-tab="users">
+                <i class="fas fa-users"></i> Usuarios
+            </button>
+            <button class="tab-btn" data-tab="stats">
+                <i class="fas fa-chart-bar"></i> Estadísticas
+            </button>
+        </nav>
+
+        <!-- Products Tab -->
+        <div id="products-tab" class="tab-content active">
+            <div class="tab-header">
+                <h2>Gestión de Productos</h2>
+                <button class="btn btn-primary" id="addProductBtn">
+                    <i class="fas fa-plus"></i> Agregar Producto
+                </button>
+            </div>
+
+            <!-- Product Form -->
+            <div class="product-form-container" id="productFormContainer" style="display: none;">
+                <form id="productForm" class="product-form">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Nombre del Producto *</label>
+                            <input type="text" id="productName" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Categoría *</label>
+                            <input type="text" id="productCategory" required>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Descripción Detallada *</label>
+                        <textarea id="productDescription" rows="4" required></textarea>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Precio Individual *</label>
+                            <input type="number" id="productPrice" step="0.01" min="0" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Precio Mayoreo *</label>
+                            <input type="number" id="productWholesalePrice" step="0.01" min="0" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Cantidad Mínima Mayoreo</label>
+                            <input type="number" id="productWholesaleQuantity" value="4" min="1">
+                        </div>
+                        <div class="form-group">
+                            <label>Stock Inicial *</label>
+                            <input type="number" id="productStock" min="0" required>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Marca</label>
+                            <input type="text" id="productBrand">
+                        </div>
+                        <div class="form-group">
+                            <label>SKU</label>
+                            <input type="text" id="productSku">
+                        </div>
+                    </div>
+
+                    <!-- Image Management -->
+                    <div class="form-group">
+                        <label>Imágenes *</label>
+                        <div class="image-upload-section">
+                            <div class="upload-method">
+                                <h4>Método 1: Por URL</h4>
+                                <div class="url-input-group">
+                                    <input type="url" id="imageUrl" placeholder="https://ejemplo.com/imagen.jpg">
+                                    <button type="button" class="btn btn-secondary" id="addUrlImage">
+                                        <i class="fas fa-plus"></i> Agregar
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="upload-method">
+                                <h4>Método 2: Subir Archivos</h4>
+                                <div class="file-upload-area" id="fileUploadArea">
+                                    <i class="fas fa-cloud-upload-alt"></i>
+                                    <p>Arrastra imágenes aquí o haz clic para seleccionar</p>
+                                    <input type="file" id="fileInput" multiple accept="image/*">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="image-preview-container" id="imagePreviewContainer">
+                            <!-- Preview images will be added here -->
+                        </div>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary" id="saveProductBtn">
+                            <i class="fas fa-save"></i> Guardar Producto
+                        </button>
+                        <button type="button" class="btn btn-secondary" id="cancelProductBtn">
+                            <i class="fas fa-times"></i> Cancelar
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Products List -->
+            <div class="products-list-container">
+                <div id="productsList" class="products-list">
+                    <!-- Products will be loaded here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Orders Tab -->
+        <div id="orders-tab" class="tab-content">
+            <div class="tab-header">
+                <h2>Gestión de Pedidos</h2>
+                <div class="filters">
+                    <select id="orderStatusFilter">
+                        <option value="">Todos los estados</option>
+                        <option value="pending">Pendiente</option>
+                        <option value="completed">Completado</option>
+                        <option value="cancelled">Cancelado</option>
+                    </select>
+                    <select id="orderPaymentFilter">
+                        <option value="">Todos los métodos</option>
+                        <option value="card">Tarjeta</option>
+                        <option value="whatsapp">WhatsApp</option>
+                    </select>
+                </div>
+            </div>
+            <div id="ordersList" class="orders-list">
+                <!-- Orders will be loaded here -->
+            </div>
+        </div>
+
+        <!-- Users Tab -->
+        <div id="users-tab" class="tab-content">
+            <div class="tab-header">
+                <h2>Gestión de Usuarios</h2>
+            </div>
+            <div id="usersList" class="users-list">
+                <!-- Users will be loaded here -->
+            </div>
+        </div>
+
+        <!-- Stats Tab -->
+        <div id="stats-tab" class="tab-content">
+            <div class="tab-header">
+                <h2>Estadísticas y Análisis</h2>
+            </div>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <h3>Ventas Totales</h3>
+                    <p class="stat-number" id="totalSales">$0</p>
+                </div>
+                <div class="stat-card">
+                    <h3>Total de Pedidos</h3>
+                    <p class="stat-number" id="totalOrdersStat">0</p>
+                </div>
+                <div class="stat-card">
+                    <h3>Total de Clientes</h3>
+                    <p class="stat-number" id="totalCustomersStat">0</p>
+                </div>
+                <div class="stat-card">
+                    <h3>Total de Productos</h3>
+                    <p class="stat-number" id="totalProductsStat">0</p>
+                </div>
+            </div>
+            <div class="charts-container">
+                <div class="chart-card">
+                    <h3>Ventas por Mes</h3>
+                    <canvas id="salesChart"></canvas>
+                </div>
+                <div class="chart-card">
+                    <h3>Ventas por Categoría</h3>
+                    <canvas id="categoryChart"></canvas>
+                </div>
+                <div class="chart-card">
+                    <h3>Productos Más Vendidos</h3>
+                    <canvas id="topProductsChart"></canvas>
+                </div>
+                <div class="chart-card">
+                    <h3>Métodos de Pago</h3>
+                    <canvas id="paymentMethodChart"></canvas>
+                </div>
+                <div class="chart-card">
+                    <h3>Tipos de Entrega</h3>
+                    <canvas id="deliveryChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Print Ticket Modal -->
+    <div id="ticketModal" class="modal" style="display: none;">
+        <div class="modal-content ticket-content">
+            <button class="modal-close" onclick="closeTicketModal()">
+                <i class="fas fa-times"></i>
+            </button>
+            <div id="ticketContent">
+                <!-- Ticket content will be generated here -->
+            </div>
+            <button class="btn btn-primary" onclick="printTicket()">
+                <i class="fas fa-print"></i> Imprimir
+            </button>
+        </div>
+    </div>
+
+    <script src="admin.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,94 @@
+/* Home.css */
+.hero {
+    position: relative;
+    padding: 80px 20px;
+    overflow: hidden;
+    min-height: 80vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.hero::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 100vw;
+    height: 100vh;
+    background-image:
+        radial-gradient(at 10% 10%, #fef08a 0px, transparent 50%),
+        radial-gradient(at 90% 10%, #f472b6 0px, transparent 50%),
+        radial-gradient(at 50% 90%, #60a5fa 0px, transparent 50%);
+    filter: blur(60px);
+    z-index: -1;
+    opacity: 0.6;
+    animation: gradientShift 20s ease-in-out infinite;
+}
+
+@keyframes gradientShift {
+    0% {
+        transform: translate(-50%, -50%) rotate(0deg) scale(1);
+    }
+
+    33% {
+        transform: translate(-50%, -50%) rotate(5deg) scale(1.1);
+    }
+
+    66% {
+        transform: translate(-50%, -50%) rotate(-5deg) scale(0.95);
+    }
+
+    100% {
+        transform: translate(-50%, -50%) rotate(0deg) scale(1);
+    }
+}
+
+.logo-large {
+    width: 300px;
+    height: 300px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(10px);
+    animation: floatLogo 6s ease-in-out infinite;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.1);
+    border: 4px solid rgba(255, 255, 255, 0.4);
+}
+
+.features-scroll-container {
+    overflow: hidden;
+    width: 100%;
+    padding: 20px 0;
+    background: rgba(255, 255, 255, 0.3);
+    backdrop-filter: blur(5px);
+    border-top: 1px solid rgba(255, 255, 255, 0.2);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.features-track {
+    display: flex;
+    gap: 2rem;
+    width: max-content;
+    animation: scroll 40s linear infinite;
+}
+
+.features-track:hover {
+    animation-play-state: paused;
+}
+
+.feature-pill {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 24px;
+    background: white;
+    border-radius: 50px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+    font-weight: 500;
+    color: var(--primary-blue);
+    white-space: nowrap;
+}
