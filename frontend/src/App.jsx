@@ -21,6 +21,7 @@ import Services from './components/Services';
 import Footer from './components/Footer';
 import WhatsAppButton from './components/WhatsAppButton';
 import Success from './pages/Success';
+import BottomNav from './components/BottomNav';
 
 const BACKEND_URL = 'https://papeleria-1x1-y-mas.onrender.com';
 
@@ -196,6 +197,12 @@ function App() {
             <CartModal
               isOpen={isCartOpen}
               onClose={() => setIsCartOpen(false)}
+            />
+
+            <BottomNav
+              onOpenSidebar={() => setIsSidebarOpen(true)}
+              onOpenLogin={() => setIsLoginOpen(true)}
+              onOpenCart={() => setIsCartOpen(true)}
             />
 
           </div>
