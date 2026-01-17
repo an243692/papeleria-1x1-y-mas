@@ -88,6 +88,8 @@ app.get('/', (req, res) => {
 app.post('/create-checkout-session', async (req, res) => {
     try {
         const { items, orderId, orderMetadata } = req.body;
+        console.log("Recibida solicitud de checkout para orden:", orderId);
+        console.log("Items recibidos:", JSON.stringify(items));
 
         // Save pending order to Realtime Database (RTDB)
         try {
@@ -100,17 +102,27 @@ app.post('/create-checkout-session', async (req, res) => {
             console.error("Error saving pending order to RTDB:", dbError);
         }
 
-        const lineItems = items.map(item => ({
-            price_data: {
-                currency: 'mxn',
-                product_data: {
-                    name: item.name,
-                    images: item.imageUrl ? [item.imageUrl] : [],
+        const lineItems = items.map(item => {
+            const price = item.unitPrice || item.price;
+            if (isNaN(price) || price === undefined) {
+                console.error("Error: Precio inválido para el producto:", item.name, "Precio recibido:", price);
+                throw new Error(`Precio inválido para el producto: ${item.name}`);
+            }
+
+            const imageUrl = item.imageUrl || (item.images && item.images[0]);
+
+            return {
+                price_data: {
+                    currency: 'mxn',
+                    product_data: {
+                        name: item.name,
+                        images: imageUrl ? [imageUrl] : [],
+                    },
+                    unit_amount: Math.round(price * 100), // Stripe uses cents
                 },
-                unit_amount: Math.round(item.price * 100), // Stripe uses cents
-            },
-            quantity: item.quantity,
-        }));
+                quantity: item.quantity,
+            };
+        });
 
         const clientUrl = process.env.CLIENT_URL?.replace(/\/$/, '');
 
