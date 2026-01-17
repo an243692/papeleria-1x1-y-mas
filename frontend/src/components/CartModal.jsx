@@ -38,10 +38,12 @@ const CartModal = ({ isOpen, onClose }) => {
                     return {
                         id: item.id,
                         name: item.name,
-                        unitPrice: unitPrice,
+                        unitPrice: unitPrice, // New name (for Admin Panel)
+                        price: unitPrice,     // Old name (for current Backend)
                         quantity: item.quantity,
                         totalPrice: unitPrice * item.quantity,
-                        images: item.images || []
+                        images: item.images || [],
+                        imageUrl: item.images?.[0] || '' // Compatibility for old Backend
                     };
                 }),
                 total: cartTotal,

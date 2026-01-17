@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { db } from './services/firebase';
 import { collection, getDocs } from 'firebase/firestore';
@@ -163,6 +163,8 @@ function App() {
                   </>
                 } />
                 <Route path="/success" element={<Success />} />
+                {/* Fallback to home for any other route like /cart */}
+                <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
             </main>
 
