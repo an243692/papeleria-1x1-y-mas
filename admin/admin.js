@@ -845,6 +845,7 @@ function createOrderCard(order) {
     const statusClass = order.status || 'pending';
     const statusText = {
         'pending': 'Pendiente',
+        'paid': 'Pagado',
         'completed': 'Completado',
         'cancelled': 'Cancelado'
     }[statusClass] || 'Pendiente';

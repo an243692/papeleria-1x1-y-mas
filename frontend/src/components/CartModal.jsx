@@ -20,7 +20,6 @@ const CartModal = ({ isOpen, onClose }) => {
         setIsLoading(true);
         let slowNetworkToast;
 
-        // Timer to warn the user if it's taking too long
         const slowNetworkTimer = setTimeout(() => {
             slowNetworkToast = toast.loading(
                 'Tu conexión es un poco lenta, en breve saldrá la pasarela de pagos...',
@@ -29,21 +28,38 @@ const CartModal = ({ isOpen, onClose }) => {
         }, 2200);
 
         try {
+            const orderId = `ORD-${Date.now()}`;
+            const orderData = {
+                id: orderId,
+                items: cart.map(item => {
+                    const unitPrice = item.wholesalePrice && item.quantity >= (item.wholesaleQuantity || 4)
+                        ? item.wholesalePrice
+                        : item.price;
+                    return {
+                        id: item.id,
+                        name: item.name,
+                        unitPrice: unitPrice,
+                        quantity: item.quantity,
+                        totalPrice: unitPrice * item.quantity,
+                        images: item.images || []
+                    };
+                }),
+                total: cartTotal,
+                status: 'pending',
+                paymentMethod: 'card',
+                timestamp: Date.now()
+            };
+
+            // Save order attempt to Backend/Firebase for tracking
             const response = await fetch(`${BACKEND_URL}/create-checkout-session`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    items: cart.map(item => ({
-                        name: item.name,
-                        price: item.wholesalePrice && item.quantity >= (item.wholesaleQuantity || 4)
-                            ? item.wholesalePrice
-                            : item.price,
-                        quantity: item.quantity,
-                        imageUrl: item.images?.[0]
-                    })),
-                    orderId: `ORD-${Date.now()}`
+                    items: orderData.items,
+                    orderId: orderId,
+                    orderMetadata: orderData // Pass full data to save in backend/DB
                 }),
             });
 
@@ -53,7 +69,6 @@ const CartModal = ({ isOpen, onClose }) => {
             const session = await response.json();
 
             if (session.url) {
-                // Pre-loading feeling: give immediate feedback before redirect
                 toast.success('¡Listo! Redirigiendo al pago...');
                 setTimeout(() => {
                     window.location.href = session.url;

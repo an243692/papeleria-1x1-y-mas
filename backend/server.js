@@ -45,23 +45,25 @@ app.post('/stripe/webhook', express.raw({ type: 'application/json' }), async (re
     try {
         event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
     } catch (err) {
+        console.error("Webhook Signature Error:", err.message);
         return res.status(400).send(`Webhook Error: ${err.message}`);
     }
 
     // Manejar el evento
     if (event.type === 'checkout.session.completed') {
         const session = event.data.object;
-        console.log('Pago completado:', session.id);
-
-        // Actualizar estado en Firebase Realtime Database o Firestore
-        // Asumimos que pasamos el orderId en metadata
         const orderId = session.metadata.orderId;
+
+        console.log('Pago completado para orden:', orderId);
+
         if (orderId) {
             try {
+                // Actualizar estado en Firebase Realtime Database
                 await rtdb.ref(`orders/${orderId}`).update({
                     status: 'paid',
                     stripeSessionId: session.id,
-                    paidAt: admin.database.ServerValue.TIMESTAMP
+                    paidAt: admin.database.ServerValue.TIMESTAMP,
+                    paymentMethod: 'card'
                 });
                 console.log(`Orden ${orderId} marcada como pagada.`);
             } catch (e) {
@@ -85,7 +87,18 @@ app.get('/', (req, res) => {
 
 app.post('/create-checkout-session', async (req, res) => {
     try {
-        const { items, orderId } = req.body;
+        const { items, orderId, orderMetadata } = req.body;
+
+        // Save pending order to Realtime Database (RTDB)
+        try {
+            await rtdb.ref(`orders/${orderId}`).set({
+                ...orderMetadata,
+                status: 'pending',
+                timestamp: admin.database.ServerValue.TIMESTAMP
+            });
+        } catch (dbError) {
+            console.error("Error saving pending order to RTDB:", dbError);
+        }
 
         const lineItems = items.map(item => ({
             price_data: {
@@ -94,7 +107,7 @@ app.post('/create-checkout-session', async (req, res) => {
                     name: item.name,
                     images: item.imageUrl ? [item.imageUrl] : [],
                 },
-                unit_amount: Math.round(item.price * 100), // Stripe usa centavos
+                unit_amount: Math.round(item.price * 100), // Stripe uses cents
             },
             quantity: item.quantity,
         }));
@@ -105,8 +118,8 @@ app.post('/create-checkout-session', async (req, res) => {
             payment_method_types: ['card'],
             line_items: lineItems,
             mode: 'payment',
-            success_url: `${clientUrl}/success?session_id={CHECKOUT_SESSION_ID}`,
-            cancel_url: `${clientUrl}/cart`,
+            success_url: `${clientUrl}/success?session_id={CHECKOUT_SESSION_ID}&order_id=${orderId}`,
+            cancel_url: `${clientUrl}/`,
             metadata: {
                 orderId: orderId
             },

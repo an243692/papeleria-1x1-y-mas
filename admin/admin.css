@@ -545,6 +545,11 @@ body {
     color: #856404;
 }
 
+.order-status.paid {
+    background-color: #cce5ff;
+    color: #004085;
+}
+
 .order-status.completed {
     background-color: #d4edda;
     color: #155724;
