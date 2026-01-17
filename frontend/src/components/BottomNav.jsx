@@ -1,10 +1,20 @@
 import React from 'react';
 import { Home, Grid, Search, ShoppingCart, User } from 'lucide-react';
 import { useCart } from '../context/CartContext';
+import { useAuth } from '../context/AuthContext';
 import './BottomNav.css';
 
-const BottomNav = ({ onOpenSidebar, onOpenLogin, onOpenCart }) => {
+const BottomNav = ({ onOpenSidebar, onOpenLogin, onOpenCart, onOpenOrders }) => {
     const { cartCount } = useCart();
+    const { user } = useAuth();
+
+    const handleAccountClick = () => {
+        if (user) {
+            onOpenOrders();
+        } else {
+            onOpenLogin();
+        }
+    };
 
     return (
         <nav className="bottom-nav lg:hidden">
@@ -27,9 +37,9 @@ const BottomNav = ({ onOpenSidebar, onOpenLogin, onOpenCart }) => {
                 </div>
                 <span>Carrito</span>
             </button>
-            <button className="nav-item" onClick={onOpenLogin}>
+            <button className="nav-item" onClick={handleAccountClick}>
                 <User className="w-6 h-6" />
-                <span>Mi Cuenta</span>
+                <span>{user ? 'Mis Pedidos' : 'Mi Cuenta'}</span>
             </button>
         </nav>
     );

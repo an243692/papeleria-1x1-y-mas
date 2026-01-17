@@ -105,45 +105,59 @@ const ProductDetailModal = ({ product, isOpen, onClose }) => {
                         {product.description || "Descripción no disponible para este producto. Excelente calidad garantizada."}
                     </p>
 
-                    <div className="bg-white/50 rounded-2xl p-6 border border-white/60 shadow-sm space-y-6">
-                        {/* Price Block */}
-                        <div className="flex justify-between items-end">
-                            <div>
-                                <p className="text-sm text-gray-500 mb-1">Precio Unitario</p>
-                                <span className={`text-3xl font-bold ${quantity >= (product.wholesaleQuantity || 1000) ? 'text-gray-400 line-through' : 'text-primary-blue'}`}>
-                                    ${product.price.toFixed(2)}
-                                </span>
-                                {(product.wholesalePrice < product.price) && (
-                                    <div className={`mt-1 text-sm ${quantity >= (product.wholesaleQuantity || 4) ? 'text-green-600 font-bold' : 'text-primary-gold'}`}>
-                                        Mayoreo: ${product.wholesalePrice.toFixed(2)}
-                                        <span className="text-xs font-normal text-gray-500 ml-1">(Min. {product.wholesaleQuantity || 4} pzas)</span>
+                    <div className="bg-white/50 rounded-2xl p-4 border border-white/60 shadow-sm space-y-4">
+                        {/* Improved Price Layout */}
+                        <div className="space-y-3">
+                            <div className="flex justify-between items-start">
+                                {/* Left Side: Unit Price */}
+                                <div className="space-y-0.5">
+                                    <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400">Precio Unitario</p>
+                                    <span className="text-2xl font-bold text-primary-blue">
+                                        ${product.price.toFixed(2)}
+                                    </span>
+                                </div>
+
+                                {/* Right Side: Wholesale Price (Swapped with Subtotal) */}
+                                {product.wholesalePrice < product.price && (
+                                    <div className="text-right space-y-0.5">
+                                        <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400">Precio Mayoreo</p>
+                                        <span className="text-2xl font-bold text-primary-red">
+                                            ${product.wholesalePrice.toFixed(2)}
+                                        </span>
+                                        <p className="text-[9px] uppercase font-bold text-gray-400">
+                                            (A partir de {product.wholesaleQuantity || 4} pzas)
+                                        </p>
                                     </div>
                                 )}
                             </div>
-                            <div className="text-right">
-                                <p className="text-sm text-gray-500 mb-1">Subtotal</p>
-                                <span className="text-2xl font-bold text-purple-600">
-                                    ${subtotal.toFixed(2)}
-                                </span>
+
+                            {/* Subtotal moved to the bottom in small text */}
+                            <div className="flex justify-center border-t border-gray-100 pt-3">
+                                <div className="text-center px-4 py-1.5 bg-gray-50 rounded-lg">
+                                    <span className="text-[10px] uppercase font-bold text-gray-500 mr-2">Subtotal estimado:</span>
+                                    <span className="text-lg font-bold text-purple-600">
+                                        ${subtotal.toFixed(2)}
+                                    </span>
+                                </div>
                             </div>
                         </div>
 
-                        {/* Controls */}
-                        <div className="flex gap-4">
+                        {/* Controls - Stacked on extra small screens */}
+                        <div className="flex flex-col sm:flex-row gap-3">
                             {/* Quantity Selector */}
-                            <div className="flex items-center bg-white rounded-full border shadow-sm h-12">
+                            <div className="flex items-center justify-between bg-white rounded-xl border shadow-sm h-12 px-2 sm:w-32">
                                 <button
                                     onClick={handleDecrement}
                                     disabled={quantity <= 1}
-                                    className="w-12 h-full flex items-center justify-center text-gray-500 hover:text-purple-600 disabled:opacity-30"
+                                    className="w-8 h-8 flex items-center justify-center text-gray-500 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-30"
                                 >
                                     <Minus className="w-4 h-4" />
                                 </button>
-                                <span className="w-12 text-center font-bold text-gray-800">{quantity}</span>
+                                <span className="flex-1 text-center font-bold text-lg text-gray-800">{quantity}</span>
                                 <button
                                     onClick={handleIncrement}
                                     disabled={quantity >= maxStock}
-                                    className="w-12 h-full flex items-center justify-center text-gray-500 hover:text-purple-600 disabled:opacity-30"
+                                    className="w-8 h-8 flex items-center justify-center text-gray-500 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-30"
                                 >
                                     <Plus className="w-4 h-4" />
                                 </button>
@@ -153,10 +167,12 @@ const ProductDetailModal = ({ product, isOpen, onClose }) => {
                             <button
                                 onClick={handleAddToCart}
                                 disabled={maxStock === 0}
-                                className="flex-1 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-full font-bold shadow-lg shadow-purple-200 hover:shadow-xl hover:scale-[1.02] transition-all flex items-center justify-center gap-2 h-12 disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="flex-1 bg-gradient-to-r from-primary-blue to-primary-red text-white rounded-xl font-bold shadow-md hover:shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 h-12 text-sm px-4 disabled:opacity-50"
                             >
-                                <ShoppingCart className="w-5 h-5" />
-                                {maxStock === 0 ? 'Agotado' : 'Agregar al Carrito'}
+                                <ShoppingCart className="w-4 h-4 flex-shrink-0" />
+                                <span className="truncate">
+                                    {maxStock === 0 ? 'Agotado' : 'Agregar'}
+                                </span>
                             </button>
                         </div>
                     </div>

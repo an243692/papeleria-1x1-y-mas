@@ -855,8 +855,33 @@ function createOrderCard(order) {
         'cancelled': 'Cancelado'
     }[statusClass] || 'Pendiente';
 
-    const paymentMethod = order.paymentMethod === 'card' ? 'Tarjeta' : 'WhatsApp';
-    const deliveryType = order.deliveryInfo?.type === 'pickup' ? 'Recoger en tienda' : 'Envío a domicilio';
+    // Unified payment method display
+    let paymentMethodDisplay = 'WhatsApp';
+    if (order.paymentMethod === 'card') paymentMethodDisplay = 'Tarjeta';
+    if (order.paymentMethod === 'cash') paymentMethodDisplay = 'Efectivo';
+
+    // Unified delivery type display
+    let deliveryType = 'Envío a domicilio';
+    const dMethod = order.deliveryMethod || order.deliveryInfo?.type;
+    if (dMethod === 'store' || dMethod === 'pickup') deliveryType = 'Recoger en tienda';
+
+    // Unified address display
+    let addressHtml = '';
+    const addr = order.shippingAddress || order.deliveryInfo?.address;
+    if (addr && dMethod !== 'store' && dMethod !== 'pickup') {
+        const street = addr.street || '';
+        const num = addr.externalNumber || '';
+        const neighborhood = addr.neighborhood || '';
+        const zip = addr.zipCode || '';
+        const city = addr.city || '';
+        const state = addr.state || '';
+        const refs = addr.references || '';
+
+        addressHtml = `
+            <p><strong>Dirección:</strong> ${street} ${num}, ${neighborhood}, CP ${zip}, ${city} ${state}</p>
+            ${refs ? `<p><strong>Referencias:</strong> ${refs}</p>` : ''}
+        `;
+    }
 
     card.innerHTML = `
         <div class="order-header-info">
@@ -872,19 +897,17 @@ function createOrderCard(order) {
                     <img src="${item.images?.[0] || '/placeholder.jpg'}" alt="${item.name}" class="order-item-image">
                     <div>
                         <p><strong>${item.name}</strong></p>
-                        <p>Cantidad: ${item.quantity} | Precio: $${item.unitPrice.toFixed(2)}</p>
-                        <p>Subtotal: $${item.totalPrice.toFixed(2)}</p>
+                        <p>Cantidad: ${item.quantity} | Precio: $${(item.unitPrice || item.price || 0).toFixed(2)}</p>
+                        <p>Subtotal: $${(item.totalPrice || (item.unitPrice * item.quantity) || 0).toFixed(2)}</p>
                     </div>
                 </div>
             `).join('') || ''}
         </div>
         <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--border-color);">
             <p><strong>Total: $${order.total?.toFixed(2)}</strong></p>
-            <p>Método de pago: ${paymentMethod}</p>
-            <p>Tipo de entrega: ${deliveryType}</p>
-            ${order.deliveryInfo?.address ? `
-                <p>Dirección: ${order.deliveryInfo.address.street || ''}, ${order.deliveryInfo.address.city || ''}, ${order.deliveryInfo.address.state || ''}</p>
-            ` : ''}
+            <p><strong>Método de pago:</strong> ${paymentMethodDisplay}</p>
+            <p><strong>Tipo de entrega:</strong> ${deliveryType}</p>
+            ${addressHtml}
         </div>
         <div class="order-actions">
             <button class="btn btn-primary" onclick="changeOrderStatus('${order.id}', '${order.status}')">

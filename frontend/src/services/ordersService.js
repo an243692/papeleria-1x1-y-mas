@@ -18,14 +18,14 @@ export const createOrder = async (orderData) => {
 
 export const getUserOrders = async (userId) => {
     const ordersRef = ref(database, 'orders');
-    const q = query(ordersRef, orderByChild('userId'), equalTo(userId));
 
     try {
-        const snapshot = await get(q);
+        const snapshot = await get(ordersRef);
         if (snapshot.exists()) {
-            return Object.values(snapshot.val())
-                .filter(order => order.status !== 'checkout_session') // Ocultar intentos de sesión
-                .sort((a, b) => b.timestamp - a.timestamp);
+            const allOrders = snapshot.val();
+            return Object.values(allOrders)
+                .filter(order => order.userId === userId && order.status !== 'checkout_session') // Filtrar por usuario y ocultar intentos
+                .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
         }
         return [];
     } catch (error) {

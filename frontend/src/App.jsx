@@ -22,6 +22,7 @@ import Footer from './components/Footer';
 import WhatsAppButton from './components/WhatsAppButton';
 import Success from './pages/Success';
 import BottomNav from './components/BottomNav';
+import MyOrdersModal from './components/MyOrdersModal';
 
 const BACKEND_URL = 'https://papeleria-1x1-y-mas.onrender.com';
 
@@ -35,6 +36,7 @@ function App() {
   const [isLoginOpen, setIsLoginOpen] = useState(false);
   const [isRegisterOpen, setIsRegisterOpen] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const [isOrdersOpen, setIsOrdersOpen] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -88,6 +90,7 @@ function App() {
               onOpenSidebar={() => setIsSidebarOpen(true)}
               onOpenLogin={() => setIsLoginOpen(true)}
               onOpenCart={() => setIsCartOpen(true)}
+              onOpenOrders={() => setIsOrdersOpen(true)}
             />
 
             <FilterSidebar
@@ -205,6 +208,12 @@ function App() {
               onOpenSidebar={() => setIsSidebarOpen(true)}
               onOpenLogin={() => setIsLoginOpen(true)}
               onOpenCart={() => setIsCartOpen(true)}
+              onOpenOrders={() => setIsOrdersOpen(true)}
+            />
+
+            <MyOrdersModal
+              isOpen={isOrdersOpen}
+              onClose={() => setIsOrdersOpen(false)}
             />
 
           </div>

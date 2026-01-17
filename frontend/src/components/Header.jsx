@@ -5,10 +5,15 @@ import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
 import './Header.css';
 
-const Header = ({ onOpenSidebar, onOpenLogin, onOpenCart }) => {
+const Header = ({ onOpenSidebar, onOpenLogin, onOpenCart, onOpenOrders }) => {
     const { cartCount } = useCart();
     const { user, logout } = useAuth();
     const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+
+    const handleOpenOrders = () => {
+        setIsUserMenuOpen(false);
+        onOpenOrders();
+    };
 
     return (
         <header className="fixed top-0 left-0 right-0 z-50 h-[80px] px-3 md:px-6 flex items-center justify-between glass-header transition-all duration-300">
@@ -68,7 +73,10 @@ const Header = ({ onOpenSidebar, onOpenLogin, onOpenCart }) => {
                                 <button className="w-full px-4 py-2 text-left hover:bg-purple-50 text-sm flex items-center gap-2 text-gray-600 hover:text-purple-600 transition-colors">
                                     <User className="w-4 h-4" /> Mi Perfil
                                 </button>
-                                <button className="w-full px-4 py-2 text-left hover:bg-purple-50 text-sm flex items-center gap-2 text-gray-600 hover:text-purple-600 transition-colors">
+                                <button
+                                    onClick={handleOpenOrders}
+                                    className="w-full px-4 py-2 text-left hover:bg-purple-50 text-sm flex items-center gap-2 text-gray-600 hover:text-purple-600 transition-colors"
+                                >
                                     <History className="w-4 h-4" /> Mis Pedidos
                                 </button>
                                 <div className="border-t border-gray-100 my-1"></div>

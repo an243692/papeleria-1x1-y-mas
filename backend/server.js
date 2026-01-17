@@ -87,25 +87,30 @@ app.get('/', (req, res) => {
 
 app.post('/create-checkout-session', async (req, res) => {
     try {
-        const { items, orderId, orderMetadata } = req.body;
-        console.log("Recibida solicitud de checkout para orden:", orderId);
-        console.log("Items recibidos:", JSON.stringify(items));
+        const { items, orderId, orderMetadata, isCash } = req.body;
+        console.log(`Recibida solicitud de ${isCash ? 'EFECTIVO' : 'TARJETA'} para orden:`, orderId);
 
-        // Save pending order to Realtime Database (RTDB) as a session attempt
+        // Save status accordingly
+        const initialStatus = isCash ? 'pending' : 'checkout_session';
+
         try {
             await rtdb.ref(`orders/${orderId}`).set({
                 ...orderMetadata,
-                status: 'checkout_session', // Hidden status for attempts
+                status: initialStatus,
                 timestamp: admin.database.ServerValue.TIMESTAMP
             });
         } catch (dbError) {
-            console.error("Error saving pending order to RTDB:", dbError);
+            console.error("Error saving order to RTDB:", dbError);
+        }
+
+        // If it's cash, we don't need Stripe
+        if (isCash) {
+            return res.json({ success: true, message: 'Orden en efectivo registrada' });
         }
 
         const lineItems = items.map(item => {
             const price = item.unitPrice || item.price;
             if (isNaN(price) || price === undefined) {
-                console.error("Error: Precio inválido para el producto:", item.name, "Precio recibido:", price);
                 throw new Error(`Precio inválido para el producto: ${item.name}`);
             }
 
@@ -118,13 +123,13 @@ app.post('/create-checkout-session', async (req, res) => {
                         name: item.name,
                         images: imageUrl ? [imageUrl] : [],
                     },
-                    unit_amount: Math.round(price * 100), // Stripe uses cents
+                    unit_amount: Math.round(price * 100),
                 },
                 quantity: item.quantity,
             };
         });
 
-        const clientUrl = process.env.CLIENT_URL?.replace(/\/$/, '');
+        const clientUrl = process.env.CLIENT_URL?.replace(/\/$/, '') || 'https://papeleria-1x1-y-mas.web.app';
 
         const session = await stripe.checkout.sessions.create({
             payment_method_types: ['card'],
@@ -132,15 +137,11 @@ app.post('/create-checkout-session', async (req, res) => {
             mode: 'payment',
             success_url: `${clientUrl}/success?session_id={CHECKOUT_SESSION_ID}&order_id=${orderId}`,
             cancel_url: `${clientUrl}/`,
-            expires_at: Math.floor(Date.now() / 1000) + (30 * 60), // Expirar en 30 minutos exactos
+            expires_at: Math.floor(Date.now() / 1000) + (30 * 60),
             metadata: {
                 orderId: orderId
             },
         });
-
-        if (!session.url) {
-            throw new Error('Stripe no generó una URL de pago válida.');
-        }
 
         res.json({ id: session.id, url: session.url });
     } catch (error) {
@@ -150,10 +151,12 @@ app.post('/create-checkout-session', async (req, res) => {
 });
 
 // Tarea de limpieza: Borrar pedidos 'checkout_session' mayores a 30 minutos
-// Se ejecuta cada 10 minutos
-const CLEANUP_INTERVAL = 10 * 60 * 1000; // 10 minutos
+const CLEANUP_INTERVAL = 10 * 60 * 1000; // Cada 10 minutos
 setInterval(async () => {
-    console.log('--- Iniciando limpieza de sesiones expiradas ---');
+    const now = Date.now();
+    const thirtyMinutesAgo = now - (30 * 60 * 1000);
+    console.log(`[${new Date().toLocaleTimeString()}] Iniciando limpieza de sesiones...`);
+
     try {
         const snapshot = await rtdb.ref('orders')
             .orderByChild('status')
@@ -161,20 +164,28 @@ setInterval(async () => {
             .once('value');
 
         const orders = snapshot.val();
-        if (!orders) return;
+        if (!orders) {
+            console.log('No hay sesiones de pago pendientes para limpiar.');
+            return;
+        }
 
-        const now = Date.now();
-        const thirtyMinutesAgo = now - (30 * 60 * 1000);
         let deletedCount = 0;
+        const keys = Object.keys(orders);
 
-        for (const orderId in orders) {
+        for (const orderId of keys) {
             const order = orders[orderId];
-            if (order.timestamp < thirtyMinutesAgo) {
+            // Solo borrar si el timestamp es menor a hace 30 minutos
+            if (order.timestamp && order.timestamp < thirtyMinutesAgo) {
                 await rtdb.ref(`orders/${orderId}`).remove();
                 deletedCount++;
             }
         }
-        if (deletedCount > 0) console.log(`Limpieza completada: ${deletedCount} sesiones borradas.`);
+
+        if (deletedCount > 0) {
+            console.log(`Limpieza completada: ${deletedCount} sesiones expiradas eliminadas.`);
+        } else {
+            console.log('No se encontraron sesiones expiradas para eliminar.');
+        }
     } catch (error) {
         console.error('Error en tarea de limpieza:', error);
     }
