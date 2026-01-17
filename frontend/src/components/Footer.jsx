@@ -31,7 +31,7 @@ const Footer = () => {
                                 <MapPin className="w-5 h-5 text-blue-300" />
                             </div>
                             <span className="text-lg font-medium leading-tight">
-                                MESONES 184-B, COL.CENTRO, CP 06090<br />
+                                CALLE LAS CRUCES 54 lOC.B CENTRO CUAUHTÉMOC C.P. 06060 CDMX<br />
                                 ALC.CUAUHTÉMOC, CDMX.
                             </span>
                         </div>
@@ -57,7 +57,7 @@ const Footer = () => {
                 {/* Map */}
                 <div className="h-64 md:h-80 rounded-2xl overflow-hidden shadow-2xl border-4 border-white/20">
                     <iframe
-                        src="https://www.google.com/maps/embed?pb=!4v1768336120731!6m8!1m7!1spe4SPOHYtMT5ETs3yDbhtA!2m2!1d19.4277664998765!2d-99.1284259697983!3f49.947350535037266!4f-5.642471763447347!5f2.240932079550953"
+                        src="https://www.google.com/maps/embed?pb=!4v1768631318442!6m8!1m7!1sG0ADff5oSkbFrjQ3xgGC2g!2m2!1d19.42670462151795!2d-99.1297815836771!3f94.61103383792997!4f-1.7392540674319719!5f0.4000000000000002"
                         width="100%"
                         height="100%"
                         style={{ border: 0 }}

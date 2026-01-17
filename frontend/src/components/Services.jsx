@@ -16,10 +16,16 @@ const Services = ({ onCategoryClick }) => {
             filter: 'Foamy',
         },
         {
-            name: 'Arte Profesional',
-            description: 'Pinturas y lienzos.',
-            image: '/cat_art.png',
-            filter: 'Arte',
+            name: 'Papelería & Papeles',
+            description: 'Cartulinas, hojas y más.',
+            image: '/cat_papers.png',
+            filter: 'Papel',
+        },
+        {
+            name: 'Cintas & Masking',
+            description: 'Cintas, masking y más.',
+            image: '/cat_tapes.png',
+            filter: 'Cintas',
         },
         {
             name: 'Escolar & Más',

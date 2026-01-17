@@ -79,6 +79,10 @@ app.use(cors({ origin: true })); // Permitir todas las conexiones por ahora (dev
 app.use(express.json());
 
 // Endpoints
+app.get('/', (req, res) => {
+    res.json({ message: "Servidor 1x1 y más - Activo" });
+});
+
 app.post('/create-checkout-session', async (req, res) => {
     try {
         const { items, orderId } = req.body;

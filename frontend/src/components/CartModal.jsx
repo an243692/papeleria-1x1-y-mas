@@ -9,8 +9,25 @@ const CartModal = ({ isOpen, onClose }) => {
     const { cart, removeFromCart, updateQuantity, cartTotal } = useCart();
     const [isLoading, setIsLoading] = React.useState(false);
 
+    // Warm up the server when the cart is opened to avoid Render's cold start delay
+    React.useEffect(() => {
+        if (isOpen) {
+            fetch(BACKEND_URL).catch(() => { /* Silent fail */ });
+        }
+    }, [isOpen]);
+
     const handleCheckout = async () => {
         setIsLoading(true);
+        let slowNetworkToast;
+
+        // Timer to warn the user if it's taking too long
+        const slowNetworkTimer = setTimeout(() => {
+            slowNetworkToast = toast.loading(
+                'Tu conexión es un poco lenta, en breve saldrá la pasarela de pagos...',
+                { position: 'top-right', duration: 3000 }
+            );
+        }, 2200);
+
         try {
             const response = await fetch(`${BACKEND_URL}/create-checkout-session`, {
                 method: 'POST',
@@ -30,16 +47,23 @@ const CartModal = ({ isOpen, onClose }) => {
                 }),
             });
 
+            clearTimeout(slowNetworkTimer);
+            if (slowNetworkToast) toast.dismiss(slowNetworkToast);
+
             const session = await response.json();
 
             if (session.url) {
-                window.location.href = session.url;
+                // Pre-loading feeling: give immediate feedback before redirect
+                toast.success('¡Listo! Redirigiendo al pago...');
+                setTimeout(() => {
+                    window.location.href = session.url;
+                }, 400);
             } else {
-                alert('El servidor no devolvió una URL de pago. Revisa los logs de Render.');
-                console.error('Session response:', session);
                 throw new Error(session.error || 'No se recibió la URL de pago');
             }
         } catch (error) {
+            clearTimeout(slowNetworkTimer);
+            if (slowNetworkToast) toast.dismiss(slowNetworkToast);
             console.error('Checkout error:', error);
             toast.error('Ocurrió un error al procesar el pago. Por favor intenta de nuevo.');
         } finally {
