@@ -24,8 +24,11 @@ const Success = () => {
                 </p>
                 <div className="pt-4">
                     <button
-                        onClick={() => navigate('/')}
-                        className="w-full bg-primary-blue text-white py-4 rounded-full font-bold hover:bg-blue-700 transition-colors shadow-lg"
+                        onClick={() => {
+                            window.scrollTo(0, 0);
+                            navigate('/');
+                        }}
+                        className="w-full bg-gradient-to-r from-primary-blue to-primary-red text-white py-4 rounded-full font-bold hover:scale-105 transition-all shadow-lg"
                     >
                         Volver a la Tienda
                     </button>
