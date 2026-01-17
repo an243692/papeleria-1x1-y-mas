@@ -5,42 +5,43 @@
 }
 
 :root {
-    --primary-blue: #1B3A6B;
-    --primary-gold: #FFD700;
-    --secondary-blue: #2C5F8D;
-    --light-blue: #E8F4F8;
-    --dark-gray: #2d3748;
-    --light-gray: #f7fafc;
+    /* Colores del logo de Papelería 1x1 y Más */
+    --primary-blue: #0056b3;
+    --primary-red: #e63946;
+    --primary-sky: #457b9d;
+    --primary-yellow: #ffc107;
+    --primary-purple: #1d3557;
+    --primary-pink: #e63946;
+    --dark-blue: #1d3557;
     --white: #FFFFFF;
-    --black: #000000;
-    --success: #48bb78;
-    --error: #f56565;
-    --warning: #ecc94b;
-    --font-primary: 'Inter', system-ui, -apple-system, sans-serif;
-    --font-secondary: 'Fredoka', cursive;
+    --success: #2a9d8f;
+    --error: #e63946;
+    --warning: #ffb703;
+    --font-primary: 'Poppins', sans-serif;
+    --font-secondary: 'Fredoka One', cursive;
 
-    /* Colores del arcoíris */
-    --rainbow-1: #667eea;
-    --rainbow-2: #764ba2;
-    --rainbow-3: #f093fb;
-    --rainbow-4: #4facfe;
+    /* Arcoiris para el panel - Ajustado a Azul y Rojo */
+    --rainbow-1: #0056b3;
+    /* Azul */
+    --rainbow-2: #e63946;
+    /* Rojo */
+    --rainbow-3: #1d3557;
+    /* Azul Oscuro */
+    --rainbow-4: #f1faee;
+    /* Fondo claro/Contraste */
 
     --card-bg: rgba(255, 255, 255, 0.9);
-    --border-color: rgba(0, 0, 0, 0.1);
-    --text-light: #2d3748;
-    --text-gray: #718096;
-    --dark-bg: transparent;
+    --border-color: rgba(0, 0, 0, 0.08);
+    --text-dark: #1d3557;
+    /* Azul muy oscuro para el texto principal */
+    --text-gray: #457b9d;
+    --light-gray: #f1faee;
 }
 
 body {
     font-family: var(--font-primary);
-    color: var(--dark-gray);
-    background-color: var(--light-gray);
-    background-image:
-        radial-gradient(at 0% 0%, rgba(102, 126, 234, 0.1) 0px, transparent 50%),
-        radial-gradient(at 100% 0%, rgba(118, 75, 162, 0.1) 0px, transparent 50%),
-        radial-gradient(at 100% 100%, rgba(240, 147, 251, 0.1) 0px, transparent 50%),
-        radial-gradient(at 0% 100%, rgba(79, 172, 254, 0.1) 0px, transparent 50%);
+    color: var(--text-dark);
+    background: linear-gradient(135deg, #e3f2fd 0%, #ffebee 100%);
     background-attachment: fixed;
     line-height: 1.6;
 }
@@ -63,8 +64,9 @@ body {
     font-size: 32px;
     margin-bottom: 20px;
     font-family: var(--font-secondary);
-    background: linear-gradient(135deg, var(--rainbow-1), var(--rainbow-2), var(--rainbow-4));
+    background: linear-gradient(135deg, var(--rainbow-1), var(--rainbow-2));
     -webkit-background-clip: text;
+    background-clip: text;
     -webkit-text-fill-color: transparent;
     display: inline-block;
 }
@@ -105,7 +107,7 @@ body {
     display: block;
     font-size: 24px;
     font-weight: 700;
-    color: var(--dark-gray);
+    color: var(--text-dark);
     font-family: var(--font-secondary);
 }
 
@@ -223,7 +225,7 @@ body {
 
 .btn-secondary {
     background-color: var(--white);
-    color: var(--dark-gray);
+    color: var(--text-dark);
     border: 1px solid var(--border-color);
 }
 
@@ -271,7 +273,7 @@ body {
 
 .form-group label {
     font-weight: 600;
-    color: var(--dark-gray);
+    color: var(--text-dark);
     font-size: 14px;
 }
 
@@ -282,7 +284,7 @@ body {
     background-color: var(--light-gray);
     border: 2px solid transparent;
     border-radius: 12px;
-    color: var(--dark-gray);
+    color: var(--text-dark);
     font-size: 14px;
     font-family: var(--font-primary);
     transition: all 0.3s;
@@ -319,7 +321,7 @@ body {
 
 .upload-method h4 {
     margin-bottom: 15px;
-    color: var(--primary-gold);
+    color: var(--primary-purple);
 }
 
 .url-input-group {
@@ -345,7 +347,7 @@ body {
 
 .file-upload-area i {
     font-size: 48px;
-    color: var(--primary-gold);
+    color: var(--primary-purple);
     margin-bottom: 15px;
 }
 
@@ -472,7 +474,7 @@ body {
 .product-card-info h4 {
     font-size: 18px;
     margin-bottom: 10px;
-    color: var(--dark-gray);
+    color: var(--text-dark);
     font-weight: 600;
 }
 
@@ -599,7 +601,7 @@ body {
     background-color: var(--white);
     border: 1px solid #ddd;
     border-radius: 8px;
-    color: var(--dark-gray);
+    color: var(--text-dark);
 }
 
 /* Users List */
@@ -664,8 +666,9 @@ body {
     font-weight: 700;
     color: var(--primary-blue);
     font-family: var(--font-secondary);
-    background: linear-gradient(135deg, var(--rainbow-2), var(--rainbow-4));
+    background: linear-gradient(135deg, var(--rainbow-1), var(--rainbow-2));
     -webkit-background-clip: text;
+    background-clip: text;
     -webkit-text-fill-color: transparent;
 }
 
@@ -686,7 +689,7 @@ body {
 .chart-card h3 {
     font-size: 20px;
     margin-bottom: 20px;
-    color: var(--dark-gray);
+    color: var(--text-dark);
     font-family: var(--font-secondary);
 }
 
@@ -726,7 +729,7 @@ body {
     right: 20px;
     background: var(--light-gray);
     border: none;
-    color: var(--dark-gray);
+    color: var(--text-dark);
     font-size: 20px;
     cursor: pointer;
     width: 40px;

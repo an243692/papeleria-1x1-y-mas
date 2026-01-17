@@ -1,12 +1,14 @@
 import React from 'react';
 import { X, ShoppingBag, Loader2 } from 'lucide-react';
 import { useCart } from '../context/CartContext';
+import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 
 const BACKEND_URL = 'https://papeleria-1x1-y-mas.onrender.com';
 
 const CartModal = ({ isOpen, onClose }) => {
     const { cart, removeFromCart, updateQuantity, cartTotal } = useCart();
+    const { userProfile } = useAuth();
     const [isLoading, setIsLoading] = React.useState(false);
 
     // Warm up the server when the cart is opened to avoid Render's cold start delay
@@ -47,9 +49,16 @@ const CartModal = ({ isOpen, onClose }) => {
                     };
                 }),
                 total: cartTotal,
-                status: 'pending',
+                status: 'checkout_session', // Estado invisible inicial
                 paymentMethod: 'card',
-                timestamp: Date.now()
+                timestamp: Date.now(),
+                userId: userProfile?.uid || 'guest',
+                userInfo: userProfile ? {
+                    fullName: userProfile.fullName,
+                    email: userProfile.email,
+                    phone: userProfile.phone || '',
+                    address: userProfile.address || ''
+                } : null
             };
 
             // Save order attempt to Backend/Firebase for tracking

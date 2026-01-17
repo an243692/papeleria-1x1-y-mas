@@ -751,7 +751,9 @@ async function loadOrders() {
         allOrders = Object.keys(ordersData).map(key => ({
             id: key,
             ...ordersData[key]
-        })).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+        }))
+            .filter(order => order.status !== 'checkout_session') // Ocultar intentos de sesión de Stripe
+            .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
 
         applyOrderFilters();
     } catch (error) {
@@ -772,6 +774,9 @@ function applyOrderFilters() {
     if (paymentFilter) {
         filtered = filtered.filter(order => order.paymentMethod === paymentFilter);
     }
+
+    // Asegurar que nunca se muestren intentos de sesión, incluso con filtros activos
+    filtered = filtered.filter(order => order.status !== 'checkout_session');
 
     displayOrders(filtered);
 }
@@ -1023,10 +1028,15 @@ async function loadStats() {
 
         const products = productsSnapshot.size;
         const ordersData = ordersSnapshot.val() || {};
-        const orders = Object.values(ordersData);
+        // Filtrar pedidos reales (excluir intentos de sesión)
+        const allOrdersArray = Object.values(ordersData).filter(o => o.status !== 'checkout_session');
+        const orders = allOrdersArray;
         const users = Object.keys(usersSnapshot.val() || {}).length;
 
-        const totalSales = orders.reduce((sum, o) => sum + (o.total || 0), 0);
+        // Filtrar pedidos pagados o completados para el cálculo de ingresos
+        const paidOrders = orders.filter(o => o.status === 'paid' || o.status === 'completed');
+        const totalSales = paidOrders.reduce((sum, o) => sum + (o.total || 0), 0);
+
         const cardPayments = orders.filter(o => o.paymentMethod === 'card').length;
         const whatsappPayments = orders.filter(o => o.paymentMethod === 'whatsapp').length;
         const pickupOrders = orders.filter(o => o.deliveryInfo?.type === 'pickup').length;
@@ -1043,10 +1053,10 @@ async function loadStats() {
         document.getElementById('totalRevenue').textContent = `$${totalSales.toFixed(2)}`;
         document.getElementById('totalUsers').textContent = users;
 
-        // Create charts
-        createSalesChart(orders);
-        await createCategoryChart(orders);
-        createTopProductsChart(orders);
+        // Create charts based on paid orders for actual sales stats
+        createSalesChart(paidOrders);
+        await createCategoryChart(paidOrders);
+        createTopProductsChart(paidOrders);
         createPaymentMethodChart(cardPayments, whatsappPayments);
         createDeliveryChart(pickupOrders, deliveryOrders);
     } catch (error) {
@@ -1084,8 +1094,8 @@ function createSalesChart(orders) {
             datasets: [{
                 label: 'Ventas',
                 data: data,
-                borderColor: '#FFD700',
-                backgroundColor: 'rgba(255, 215, 0, 0.1)',
+                borderColor: '#0056b3',
+                backgroundColor: 'rgba(0, 86, 179, 0.1)',
                 tension: 0.4
             }]
         },
@@ -1093,17 +1103,17 @@ function createSalesChart(orders) {
             responsive: true,
             plugins: {
                 legend: {
-                    labels: { color: '#ffffff' }
+                    labels: { color: '#1d3557' }
                 }
             },
             scales: {
                 y: {
-                    ticks: { color: '#ffffff' },
-                    grid: { color: '#404040' }
+                    ticks: { color: '#1d3557' },
+                    grid: { color: 'rgba(0, 0, 0, 0.05)' }
                 },
                 x: {
-                    ticks: { color: '#ffffff' },
-                    grid: { color: '#404040' }
+                    ticks: { color: '#1d3557' },
+                    grid: { color: 'rgba(0, 0, 0, 0.05)' }
                 }
             }
         }
@@ -1137,8 +1147,8 @@ async function createCategoryChart(orders) {
         const labels = Object.keys(categoryData);
         const data = Object.values(categoryData);
 
-        // Generate colors for categories
-        const colors = ['#1B3A6B', '#FFD700', '#2C5F8D', '#FFC700', '#25D366', '#FF6B6B', '#4ECDC4', '#95E1D3'];
+        // Generate colors for categories - Blue and Red palette
+        const colors = ['#0056b3', '#e63946', '#1d3557', '#f1faee', '#457b9d', '#ffb703'];
         const backgroundColors = labels.map((_, index) => colors[index % colors.length]);
 
         if (ctx.chart) {
@@ -1158,7 +1168,7 @@ async function createCategoryChart(orders) {
                 responsive: true,
                 plugins: {
                     legend: {
-                        labels: { color: '#ffffff' },
+                        labels: { color: '#1d3557' },
                         position: 'right'
                     }
                 }
@@ -1195,24 +1205,24 @@ function createTopProductsChart(orders) {
             datasets: [{
                 label: 'Cantidad vendida',
                 data: sorted.map(([, count]) => count),
-                backgroundColor: '#1B3A6B'
+                backgroundColor: '#0056b3'
             }]
         },
         options: {
             responsive: true,
             plugins: {
                 legend: {
-                    labels: { color: '#ffffff' }
+                    labels: { color: '#1d3557' }
                 }
             },
             scales: {
                 y: {
-                    ticks: { color: '#ffffff' },
-                    grid: { color: '#404040' }
+                    ticks: { color: '#1d3557' },
+                    grid: { color: 'rgba(0, 0, 0, 0.05)' }
                 },
                 x: {
-                    ticks: { color: '#ffffff' },
-                    grid: { color: '#404040' }
+                    ticks: { color: '#1d3557' },
+                    grid: { color: 'rgba(0, 0, 0, 0.05)' }
                 }
             }
         }
@@ -1233,14 +1243,14 @@ function createPaymentMethodChart(card, whatsapp) {
             labels: ['Tarjeta', 'WhatsApp'],
             datasets: [{
                 data: [card, whatsapp],
-                backgroundColor: ['#1B3A6B', '#25D366']
+                backgroundColor: ['#0056b3', '#e63946']
             }]
         },
         options: {
             responsive: true,
             plugins: {
                 legend: {
-                    labels: { color: '#ffffff' }
+                    labels: { color: '#1d3557' }
                 }
             }
         }
@@ -1262,14 +1272,14 @@ function createDeliveryChart(pickup, delivery) {
             labels: ['Recoger en tienda', 'Envío a domicilio'],
             datasets: [{
                 data: [pickup, delivery],
-                backgroundColor: ['#1B3A6B', '#FFD700']
+                backgroundColor: ['#0056b3', '#e63946']
             }]
         },
         options: {
             responsive: true,
             plugins: {
                 legend: {
-                    labels: { color: '#ffffff' }
+                    labels: { color: '#1d3557' }
                 }
             }
         }
@@ -1281,18 +1291,26 @@ function setupRealtimeStats() {
     // Listen to orders changes
     rtdb.ref('orders').on('value', (snapshot) => {
         const ordersData = snapshot.val() || {};
-        const orders = Object.values(ordersData);
-        const totalSales = orders.reduce((sum, o) => sum + (o.total || 0), 0);
+        const allOrdersArray = Object.values(ordersData).filter(o => o.status !== 'checkout_session');
+        const orders = allOrdersArray;
 
-        document.getElementById('totalOrders').textContent = orders.length;
-        document.getElementById('totalRevenue').textContent = `$${totalSales.toFixed(2)}`;
+        // Filtrar solo pedidos pagados o completados para ingresos en tiempo real
+        const paidOrders = orders.filter(o => o.status === 'paid' || o.status === 'completed');
+        const totalSales = paidOrders.reduce((sum, o) => sum + (o.total || 0), 0);
+
+        const totalOrdersElem = document.getElementById('totalOrders');
+        const totalRevenueElem = document.getElementById('totalRevenue');
+
+        if (totalOrdersElem) totalOrdersElem.textContent = orders.length;
+        if (totalRevenueElem) totalRevenueElem.textContent = `$${totalSales.toFixed(2)}`;
     });
 
     // Listen to users changes
     rtdb.ref('users').on('value', (snapshot) => {
         const usersData = snapshot.val() || {};
         const usersCount = Object.keys(usersData).length;
-        document.getElementById('totalUsers').textContent = usersCount;
+        const totalUsersElem = document.getElementById('totalUsers');
+        if (totalUsersElem) totalUsersElem.textContent = usersCount;
     });
 }
 

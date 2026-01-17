@@ -23,7 +23,9 @@ export const getUserOrders = async (userId) => {
     try {
         const snapshot = await get(q);
         if (snapshot.exists()) {
-            return Object.values(snapshot.val()).sort((a, b) => b.timestamp - a.timestamp);
+            return Object.values(snapshot.val())
+                .filter(order => order.status !== 'checkout_session') // Ocultar intentos de sesión
+                .sort((a, b) => b.timestamp - a.timestamp);
         }
         return [];
     } catch (error) {

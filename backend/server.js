@@ -91,11 +91,11 @@ app.post('/create-checkout-session', async (req, res) => {
         console.log("Recibida solicitud de checkout para orden:", orderId);
         console.log("Items recibidos:", JSON.stringify(items));
 
-        // Save pending order to Realtime Database (RTDB)
+        // Save pending order to Realtime Database (RTDB) as a session attempt
         try {
             await rtdb.ref(`orders/${orderId}`).set({
                 ...orderMetadata,
-                status: 'pending',
+                status: 'checkout_session', // Hidden status for attempts
                 timestamp: admin.database.ServerValue.TIMESTAMP
             });
         } catch (dbError) {
@@ -132,6 +132,7 @@ app.post('/create-checkout-session', async (req, res) => {
             mode: 'payment',
             success_url: `${clientUrl}/success?session_id={CHECKOUT_SESSION_ID}&order_id=${orderId}`,
             cancel_url: `${clientUrl}/`,
+            expires_at: Math.floor(Date.now() / 1000) + (30 * 60), // Expirar en 30 minutos exactos
             metadata: {
                 orderId: orderId
             },
@@ -147,6 +148,37 @@ app.post('/create-checkout-session', async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 });
+
+// Tarea de limpieza: Borrar pedidos 'checkout_session' mayores a 30 minutos
+// Se ejecuta cada 10 minutos
+const CLEANUP_INTERVAL = 10 * 60 * 1000; // 10 minutos
+setInterval(async () => {
+    console.log('--- Iniciando limpieza de sesiones expiradas ---');
+    try {
+        const snapshot = await rtdb.ref('orders')
+            .orderByChild('status')
+            .equalTo('checkout_session')
+            .once('value');
+
+        const orders = snapshot.val();
+        if (!orders) return;
+
+        const now = Date.now();
+        const thirtyMinutesAgo = now - (30 * 60 * 1000);
+        let deletedCount = 0;
+
+        for (const orderId in orders) {
+            const order = orders[orderId];
+            if (order.timestamp < thirtyMinutesAgo) {
+                await rtdb.ref(`orders/${orderId}`).remove();
+                deletedCount++;
+            }
+        }
+        if (deletedCount > 0) console.log(`Limpieza completada: ${deletedCount} sesiones borradas.`);
+    } catch (error) {
+        console.error('Error en tarea de limpieza:', error);
+    }
+}, CLEANUP_INTERVAL);
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
