@@ -31,8 +31,8 @@ const LoginModal = ({ isOpen, onClose, onSwitchToRegister }) => {
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[2000] flex items-center justify-center p-4">
-            <div className="bg-white rounded-3xl p-8 max-w-md w-full relative animate-in fade-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[2000] flex items-center justify-center p-4">
+            <div className="bg-white rounded-[2rem] p-8 max-w-md w-full relative animate-in zoom-in-95 duration-300 shadow-2xl">
                 <button
                     onClick={onClose}
                     className="absolute top-4 right-4 p-2 hover:bg-gray-100 rounded-full transition-colors"

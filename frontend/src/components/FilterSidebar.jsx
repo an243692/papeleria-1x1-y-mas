@@ -160,4 +160,3 @@ const FilterSidebar = ({ isOpen, onClose, filters, setFilters, categories = [] }
 };
 
 export default FilterSidebar;
-

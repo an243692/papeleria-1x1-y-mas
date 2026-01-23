@@ -59,6 +59,13 @@ const CartModal = ({ isOpen, onClose }) => {
                 const unitPrice = item.wholesalePrice && item.quantity >= (item.wholesaleQuantity || 4)
                     ? item.wholesalePrice
                     : item.price;
+                // Verificar si la imagen es una URL válida y no una cadena base64 gigante
+                let cleanImageUrl = item.images?.[0] || '';
+                if (cleanImageUrl.length > 500 || cleanImageUrl.startsWith('data:')) {
+                    console.warn('Imagen omitida por ser demasiado larga (posible base64):', item.name);
+                    cleanImageUrl = ''; // Enviar vacío si es muy larga para no romper el checkout
+                }
+
                 return {
                     id: item.id,
                     name: item.name,
@@ -66,8 +73,8 @@ const CartModal = ({ isOpen, onClose }) => {
                     price: unitPrice,
                     quantity: item.quantity,
                     totalPrice: unitPrice * item.quantity,
-                    images: item.images || [],
-                    imageUrl: item.images?.[0] || ''
+                    // Solo enviar la imagen si es una URL razonable
+                    imageUrl: cleanImageUrl
                 };
             });
 
@@ -115,6 +122,8 @@ const CartModal = ({ isOpen, onClose }) => {
                 if (response.ok) {
                     toast.success('¡Pedido registrado! Redirigiendo a WhatsApp...');
 
+                    // Redirigir a WhatsApp
+
                     // Construct WhatsApp Message (Ticket Style)
                     const formatCurrency = (val) => `$${val.toFixed(2)}`;
                     const storePhone = "525528526573";
@@ -160,8 +169,8 @@ const CartModal = ({ isOpen, onClose }) => {
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[2000] flex items-center justify-center p-2 sm:p-4">
-            <div className="bg-white rounded-3xl p-4 sm:p-8 max-w-2xl w-full relative animate-in fade-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto shadow-2xl">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[2000] flex items-center justify-center p-4">
+            <div className="bg-white rounded-[2rem] p-6 sm:p-8 max-w-2xl w-full relative animate-in zoom-in-95 duration-300 max-h-[92vh] overflow-y-auto shadow-2xl">
                 <button
                     onClick={onClose}
                     className="absolute top-3 right-3 p-1.5 hover:bg-gray-100 rounded-full transition-colors z-10"

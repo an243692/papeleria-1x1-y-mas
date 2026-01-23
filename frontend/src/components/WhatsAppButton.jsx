@@ -6,7 +6,7 @@ const WhatsAppButton = () => {
             href="https://wa.me/525528526573"
             target="_blank"
             rel="noopener noreferrer"
-            className="fixed bottom-20 right-4 sm:bottom-6 sm:right-6 z-[1100] w-14 h-14 bg-[#25D366] hover:bg-[#20BA5A] rounded-full shadow-lg shadow-green-500/30 flex items-center justify-center transition-all hover:scale-110 active:scale-95 animate-bounce-slow"
+            className="fixed bottom-20 right-4 sm:bottom-6 sm:right-6 z-[1100] w-14 h-14 bg-[#25D366] hover:bg-[#20BA5A] rounded-full shadow-lg shadow-green-500/30 flex items-center justify-center transition-all hover:scale-110 active:scale-95 animate-pulse-slow"
         >
             {/* WhatsApp Official Logo */}
             <svg
@@ -18,6 +18,7 @@ const WhatsAppButton = () => {
                 <path d="M23.616 19.2c-.384-.192-2.272-1.12-2.624-1.248-.352-.128-.608-.192-.864.192-.256.384-1.024 1.248-1.248 1.504-.224.256-.448.288-.832.096-.384-.192-1.632-.6-3.104-1.92-1.152-1.024-1.92-2.288-2.144-2.672-.224-.384-.024-.592.168-.784.176-.176.384-.448.576-.672.192-.224.256-.384.384-.64.128-.256.064-.48-.032-.672-.096-.192-.864-2.08-1.184-2.848-.32-.752-.64-.648-.864-.656-.224-.008-.48-.008-.736-.008s-.672.096-.992.48c-.32.384-1.248 1.216-1.248 2.976s1.28 3.456 1.456 3.68c.176.224 2.528 3.856 6.128 5.408.856.368 1.52.592 2.048.752.856.272 1.632.232 2.24.144.688-.104 2.112-.864 2.416-1.696.304-.832.304-1.552.208-1.696-.096-.144-.352-.224-.736-.416z" />
             </svg>
         </a>
+
     );
 };
 

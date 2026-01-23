@@ -55,8 +55,8 @@ const MyOrdersModal = ({ isOpen, onClose }) => {
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[2100] flex items-center justify-center p-2 sm:p-4">
-            <div className="bg-white rounded-3xl w-full max-w-2xl h-[85vh] flex flex-col relative animate-in fade-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[2100] flex items-center justify-center p-4">
+            <div className="bg-white rounded-[2rem] w-full max-w-2xl h-[92vh] sm:h-[85vh] flex flex-col relative animate-in zoom-in-95 duration-300 shadow-2xl overflow-hidden">
                 {/* Header */}
                 <div className="p-6 border-b flex items-center justify-between">
                     <div>

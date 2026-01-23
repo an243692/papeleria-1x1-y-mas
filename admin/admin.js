@@ -10,611 +10,471 @@ const firebaseConfig = {
     measurementId: "G-C7DCRY1JSB"
 };
 
-// Verificar que Firebase esté disponible globalmente
-if (typeof firebase === 'undefined') {
-    console.error('Firebase no está disponible. Asegúrate de que los scripts se carguen correctamente.');
-}
-
-// Initialize Firebase
+// Global services
 let db, rtdb, storage;
-
-function initializeFirebase() {
-    try {
-        // Verificar que Firebase esté disponible
-        if (typeof firebase === 'undefined' || typeof firebase.initializeApp === 'undefined') {
-            console.log('Firebase no está disponible aún. Esperando...');
-            // Intentar de nuevo después de un breve delay (máximo 10 intentos)
-            if (typeof initializeFirebase.attempts === 'undefined') {
-                initializeFirebase.attempts = 0;
-            }
-            initializeFirebase.attempts++;
-            if (initializeFirebase.attempts < 20) {
-                setTimeout(initializeFirebase, 200);
-            } else {
-                alert('Error: Firebase no se pudo cargar después de varios intentos. Por favor verifica tu conexión a internet y recarga la página.');
-            }
-            return;
-        }
-
-        console.log('Inicializando Firebase...');
-        console.log('Firebase disponible:', typeof firebase !== 'undefined');
-        console.log('Firebase config:', { ...firebaseConfig, apiKey: firebaseConfig.apiKey ? '***' : 'NO DEFINIDA' });
-
-        // Verificar si Firebase ya está inicializado
-        if (!firebase.apps || firebase.apps.length === 0) {
-            console.log('Inicializando nueva app de Firebase...');
-            firebase.initializeApp(firebaseConfig);
-        } else {
-            console.log('Firebase ya estaba inicializado');
-        }
-
-        // Usar compat mode para Firestore, Database y Storage
-        db = firebase.firestore();
-        rtdb = firebase.database();
-        storage = firebase.storage();
-
-        console.log('Firebase inicializado correctamente');
-        console.log('db:', db ? 'OK' : 'ERROR');
-        console.log('rtdb:', rtdb ? 'OK' : 'ERROR');
-        console.log('storage:', storage ? 'OK' : 'ERROR');
-
-        // Verificar conexión a Firestore
-        if (db) {
-            db.enablePersistence().catch((err) => {
-                if (err.code == 'failed-precondition') {
-                    console.warn('Persistencia fallida: múltiples pestañas abiertas');
-                } else if (err.code == 'unimplemented') {
-                    console.warn('Persistencia no disponible en este navegador');
-                } else {
-                    console.warn('Error en persistencia:', err);
-                }
-            });
-        }
-    } catch (error) {
-        console.error('Error al inicializar Firebase:', error);
-        console.error('Error stack:', error.stack);
-        alert('Error al inicializar Firebase. Por favor recarga la página. Error: ' + error.message);
-    }
-}
-
-// Inicializar Firebase cuando el DOM esté listo
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initializeFirebase);
-} else {
-    // Si el DOM ya está cargado, esperar un momento para que Firebase se cargue
-    setTimeout(initializeFirebase, 100);
-}
 
 // Global State
 let currentEditingProductId = null;
 let productImages = [];
-let currentPrimaryImageIndex = 0;
 
-// Wait for DOM to be ready and Firebase to be initialized
-function waitForFirebase() {
-    if (typeof firebase === 'undefined' || !db) {
-        console.log('Esperando a que Firebase se inicialice...');
-        setTimeout(waitForFirebase, 100);
+// Initialize Firebase
+function initializeFirebase() {
+    if (typeof firebase === 'undefined') {
+        console.error('Firebase SDK not loaded');
         return;
     }
-    console.log('Firebase listo, inicializando app...');
+
+    if (!firebase.apps.length) {
+        firebase.initializeApp(firebaseConfig);
+    }
+
+    db = firebase.firestore();
+    rtdb = firebase.database();
+
+    // Configurar persistencia si es posible
+    db.enablePersistence().catch(err => console.log('Persistencia no disponible:', err.code));
+
+    console.log('Firebase Initialized');
+
+    // Start app
     initializeApp();
 }
 
-// Wait for DOM to be ready
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => {
-        waitForFirebase();
-    });
-} else {
-    waitForFirebase();
+// Main App Initialization
+function initializeApp() {
+    setupNavigation();
+    loadProducts();
+    loadStats();
+    setupOrderFilters();
+    checkUrlParams();
 }
 
-function initializeApp() {
-    // Tab Navigation
+// Navigation
+function setupNavigation() {
     document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             const tabName = btn.dataset.tab;
             switchTab(tabName);
+            const wrapper = document.getElementById('adminWrapper');
+            if (wrapper) wrapper.classList.remove('menu-open');
         });
     });
 
-    // Products Management - Event Listeners
+    const toggleBtn = document.querySelector('.mobile-menu-toggle');
+    if (toggleBtn) {
+        toggleBtn.addEventListener('click', () => {
+            document.getElementById('adminWrapper').classList.toggle('menu-open');
+        });
+    }
+
     const addProductBtn = document.getElementById('addProductBtn');
+    if (addProductBtn) addProductBtn.addEventListener('click', showProductForm);
+
     const cancelProductBtn = document.getElementById('cancelProductBtn');
+    if (cancelProductBtn) cancelProductBtn.addEventListener('click', () => {
+        hideProductForm();
+        resetProductForm();
+    });
+
     const productForm = document.getElementById('productForm');
-    const addUrlImageBtn = document.getElementById('addUrlImage');
-    const fileUploadArea = document.getElementById('fileUploadArea');
-    const fileInput = document.getElementById('fileInput');
-
-    if (addProductBtn) {
-        addProductBtn.addEventListener('click', () => {
-            showProductForm();
-        });
-    }
-
-    if (cancelProductBtn) {
-        cancelProductBtn.addEventListener('click', () => {
-            hideProductForm();
-            resetProductForm();
-        });
-    }
-
     if (productForm) {
         productForm.addEventListener('submit', async (e) => {
             e.preventDefault();
-            e.stopPropagation();
-            console.log('Formulario enviado, llamando a saveProduct...');
-            try {
-                await saveProduct();
-            } catch (error) {
-                console.error('Error en saveProduct:', error);
-                alert('Error al guardar: ' + error.message);
-            }
-        });
-    } else {
-        console.error('No se encontró el formulario productForm');
-    }
-
-    // También agregar listener directo al botón por si acaso
-    const saveProductBtn = document.getElementById('saveProductBtn');
-    if (saveProductBtn) {
-        saveProductBtn.addEventListener('click', async (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            console.log('Botón guardar clickeado directamente');
-            const form = document.getElementById('productForm');
-            if (form) {
-                // Disparar el evento submit del formulario
-                form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
-            } else {
-                await saveProduct();
-            }
+            await saveProduct();
         });
     }
 
+    const addUrlImageBtn = document.getElementById('addUrlImage');
     if (addUrlImageBtn) {
         addUrlImageBtn.addEventListener('click', () => {
             const urlInput = document.getElementById('imageUrl');
-            if (!urlInput) {
-                console.error('No se encontró el campo imageUrl');
-                return;
-            }
-
-            const url = urlInput.value.trim();
-            if (!url) {
-                alert('Por favor ingresa una URL de imagen');
-                return;
-            }
-
-            if (isValidImageUrl(url)) {
-                addImageToPreview(url);
+            if (urlInput && urlInput.value.trim()) {
+                addImageToPreview(urlInput.value.trim());
                 urlInput.value = '';
-            } else {
-                alert('Por favor ingresa una URL válida de imagen (debe comenzar con http:// o https://)');
             }
         });
     }
 
-    // Permitir agregar imagen con Enter en el campo URL
-    const imageUrlInput = document.getElementById('imageUrl');
-    if (imageUrlInput) {
-        imageUrlInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                if (addUrlImageBtn) {
-                    addUrlImageBtn.click();
-                }
-            }
-        });
-    }
-
-    if (fileUploadArea) {
-        fileUploadArea.addEventListener('click', () => {
-            if (fileInput) {
-                fileInput.click();
-            }
-        });
-    }
-
+    // File input change for products (Cloudinary)
+    const fileInput = document.getElementById('fileInput');
     if (fileInput) {
-        fileInput.addEventListener('change', async (e) => {
-            const files = Array.from(e.target.files);
-
-            for (const file of files) {
-                if (file.size > 5 * 1024 * 1024) {
-                    alert(`El archivo ${file.name} es demasiado grande. Máximo 5MB.`);
-                    continue;
-                }
-                if (!file.type.startsWith('image/')) {
-                    alert(`El archivo ${file.name} no es una imagen válida.`);
-                    continue;
-                }
-
-                // Mostrar preview temporal mientras se sube
-                const reader = new FileReader();
-                reader.onload = (event) => {
-                    addImageToPreview(event.target.result, true); // true = es temporal
-                };
-                reader.readAsDataURL(file);
-
-                // Subir a Firebase Storage
-                try {
-                    await uploadImageToStorage(file);
-                } catch (error) {
-                    console.error('Error al subir imagen:', error);
-                    alert(`Error al subir ${file.name}. Por favor intenta de nuevo.`);
-                    // Remover la imagen temporal del preview
-                    const tempIndex = productImages.findIndex(img => img.startsWith('data:'));
-                    if (tempIndex !== -1) {
-                        removeImage(tempIndex);
-                    }
-                }
-            }
-
-            // Limpiar el input
-            fileInput.value = '';
+        fileInput.addEventListener('click', (e) => {
+            e.preventDefault(); // Prevent default file dialog
+            handleAddProductFile();
         });
     }
-
-    // Initialize data
-    loadProducts();
-    loadStats();
-    setupRealtimeStats();
-    setupOrderFilters();
 }
 
 function switchTab(tabName) {
-    // Update buttons
     document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.classList.remove('active');
+        if (btn.dataset.tab === tabName) btn.classList.add('active');
     });
-    const activeBtn = document.querySelector(`[data-tab="${tabName}"]`);
-    if (activeBtn) {
-        activeBtn.classList.add('active');
-    }
 
-    // Update content
     document.querySelectorAll('.tab-content').forEach(content => {
         content.classList.remove('active');
     });
     const activeTab = document.getElementById(`${tabName}-tab`);
-    if (activeTab) {
-        activeTab.classList.add('active');
-    }
+    if (activeTab) activeTab.classList.add('active');
 
-    // Load data for the tab
-    switch (tabName) {
-        case 'products':
-            loadProducts();
-            break;
-        case 'orders':
-            loadOrders();
-            break;
-        case 'users':
-            loadUsers();
-            break;
-        case 'stats':
-            loadStats();
-            break;
-    }
+    if (tabName === 'products') loadProducts();
+    if (tabName === 'orders') loadOrders();
+    if (tabName === 'users') loadUsers();
+    if (tabName === 'carousel') loadCarouselImages();
+    if (tabName === 'promotions') loadPromotions();
 }
 
-function isValidImageUrl(url) {
-    // Validar que sea una URL válida
+function checkUrlParams() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const tab = urlParams.get('tab');
+    if (tab) switchTab(tab);
+}
+
+// Stats & Other basics (placeholder functions)
+async function loadStats() {
     try {
-        new URL(url);
-    } catch (e) {
-        return false;
-    }
+        const ordersSnapshot = await rtdb.ref('orders').once('value');
+        const usersSnapshot = await rtdb.ref('users').once('value');
 
-    // Verificar extensiones de imagen o si es una URL de imagen (puede no tener extensión)
-    const imageExtensions = /\.(jpg|jpeg|png|webp|gif|svg|bmp)(\?.*)?$/i;
-    const imagePatterns = [
-        /\.(jpg|jpeg|png|webp|gif|svg|bmp)(\?.*)?$/i,
-        /\/image\//i,
-        /\/img\//i,
-        /\.(jpg|jpeg|png|webp|gif)/i
-    ];
+        const orders = ordersSnapshot.val() || {};
+        const users = usersSnapshot.val() || {};
 
-    // Si tiene extensión de imagen, es válida
-    if (imageExtensions.test(url)) {
-        return true;
-    }
+        const totalOrders = Object.keys(orders).length;
+        const totalUsers = Object.keys(users).length;
 
-    // Si no tiene extensión pero parece una URL de imagen, también aceptarla
-    // (muchas APIs de imágenes no tienen extensión en la URL)
-    return url.startsWith('http://') || url.startsWith('https://');
-}
+        let totalRevenue = 0;
+        Object.values(orders).forEach(order => {
+            const status = order.status || 'pending';
+            const method = order.paymentMethod || 'whatsapp';
+            let shouldCount = false;
 
-function addImageToPreview(imageUrl, isTemporary = false) {
-    if (isTemporary) {
-        // Si es temporal, reemplazar la última imagen temporal si existe
-        const lastTempIndex = productImages.findLastIndex(img => img && img.startsWith('data:'));
-        if (lastTempIndex !== -1) {
-            productImages[lastTempIndex] = imageUrl;
-        } else {
-            productImages.push(imageUrl);
-        }
-    } else {
-        productImages.push(imageUrl);
-    }
-    updateImagePreview();
-}
+            if (method === 'card') {
+                // Card: Paid is enough (or delivered/completed)
+                if (['paid', 'delivered', 'completed'].includes(status)) {
+                    shouldCount = true;
+                }
+            } else {
+                // Cash (others): ONLY when delivered (or completed)
+                if (['delivered', 'completed'].includes(status)) {
+                    shouldCount = true;
+                }
+            }
 
-// Función para subir imagen a Firebase Storage
-async function uploadImageToStorage(file) {
-    if (!storage) {
-        throw new Error('Firebase Storage no está inicializado');
-    }
+            if (shouldCount) {
+                totalRevenue += (order.total || 0);
+            }
+        });
 
-    try {
-        // Crear referencia única para la imagen
-        const timestamp = Date.now();
-        const randomString = Math.random().toString(36).substring(2, 15);
-        const fileName = `products/${timestamp}_${randomString}_${file.name}`;
-        const storageRef = storage.ref().child(fileName);
+        // Update UI
+        const totalOrdersEl = document.getElementById('totalOrders');
+        const totalRevenueEl = document.getElementById('totalRevenue');
+        const totalUsersEl = document.getElementById('totalUsers');
 
-        // Mostrar indicador de carga
-        const container = document.getElementById('imagePreviewContainer');
-        const loadingIndicator = document.createElement('div');
-        loadingIndicator.className = 'upload-loading';
-        loadingIndicator.style.cssText = 'padding: 10px; background: rgba(0,0,0,0.5); color: white; border-radius: 4px; margin: 5px 0;';
-        loadingIndicator.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Subiendo ${file.name}...`;
-        container.appendChild(loadingIndicator);
+        if (totalOrdersEl) totalOrdersEl.innerText = totalOrders;
+        if (totalRevenueEl) totalRevenueEl.innerText = `$${totalRevenue.toFixed(2)}`;
+        if (totalUsersEl) totalUsersEl.innerText = totalUsers;
 
-        // Subir el archivo
-        const snapshot = await storageRef.put(file);
-
-        // Obtener la URL de descarga pública
-        const downloadURL = await snapshot.ref.getDownloadURL();
-
-        // Remover el indicador de carga
-        loadingIndicator.remove();
-
-        // Reemplazar la imagen temporal (Data URL) con la URL pública
-        const tempIndex = productImages.findLastIndex(img => img && img.startsWith('data:'));
-        if (tempIndex !== -1) {
-            productImages[tempIndex] = downloadURL;
-        } else {
-            productImages.push(downloadURL);
-        }
-
-        updateImagePreview();
-
-        console.log('Imagen subida exitosamente:', downloadURL);
-        return downloadURL;
     } catch (error) {
-        console.error('Error al subir imagen a Storage:', error);
-        throw error;
+        console.error("Error loading stats:", error);
     }
 }
+function setupOrderFilters() { return; }
+// ============================================
+// USERS & ORDERS MANAGEMENT
+// ============================================
 
-function removeImage(index) {
-    productImages.splice(index, 1);
-    if (currentPrimaryImageIndex >= productImages.length) {
-        currentPrimaryImageIndex = 0;
-    }
-    updateImagePreview();
-}
-
-function setPrimaryImage(index) {
-    currentPrimaryImageIndex = index;
-    updateImagePreview();
-}
-
-function updateImagePreview() {
-    const container = document.getElementById('imagePreviewContainer');
-    container.innerHTML = '';
-
-    if (productImages.length === 0) {
-        container.innerHTML = '<p style="color: #999;">No hay imágenes agregadas</p>';
-        return;
-    }
-
-    productImages.forEach((imageUrl, index) => {
-        const item = document.createElement('div');
-        item.className = 'image-preview-item';
-
-        const img = document.createElement('img');
-        img.src = imageUrl;
-        img.alt = `Imagen ${index + 1}`;
-
-        const actions = document.createElement('div');
-        actions.className = 'image-actions';
-
-        if (index !== currentPrimaryImageIndex) {
-            const setPrimaryBtn = document.createElement('button');
-            setPrimaryBtn.innerHTML = '<i class="fas fa-star"></i>';
-            setPrimaryBtn.title = 'Marcar como principal';
-            setPrimaryBtn.onclick = () => setPrimaryImage(index);
-            actions.appendChild(setPrimaryBtn);
-        }
-
-        const removeBtn = document.createElement('button');
-        removeBtn.innerHTML = '<i class="fas fa-times"></i>';
-        removeBtn.title = 'Eliminar';
-        removeBtn.onclick = () => removeImage(index);
-        actions.appendChild(removeBtn);
-
-        if (index === currentPrimaryImageIndex) {
-            const badge = document.createElement('span');
-            badge.className = 'primary-badge';
-            badge.textContent = 'Principal';
-            item.appendChild(badge);
-        }
-
-        item.appendChild(img);
-        item.appendChild(actions);
-        container.appendChild(item);
-    });
-}
-
-function showProductForm() {
-    document.getElementById('productFormContainer').style.display = 'block';
-    document.getElementById('addProductBtn').style.display = 'none';
-}
-
-function hideProductForm() {
-    document.getElementById('productFormContainer').style.display = 'none';
-    document.getElementById('addProductBtn').style.display = 'inline-flex';
-}
-
-function resetProductForm() {
-    document.getElementById('productForm').reset();
-    productImages = [];
-    currentPrimaryImageIndex = 0;
-    currentEditingProductId = null;
-    updateImagePreview();
-    document.getElementById('saveProductBtn').innerHTML = '<i class="fas fa-save"></i> Guardar Producto';
-}
-
-async function saveProduct() {
-    console.log('saveProduct llamado');
-
-    // Verificar que Firebase esté inicializado
-    if (!db) {
-        alert('Error: Firebase no está inicializado. Por favor recarga la página.');
-        console.error('db no está definido');
-        return;
-    }
-
-    // Validar campos requeridos
-    const nameInput = document.getElementById('productName');
-    const descriptionInput = document.getElementById('productDescription');
-    const priceInput = document.getElementById('productPrice');
-    const wholesalePriceInput = document.getElementById('productWholesalePrice');
-    const stockInput = document.getElementById('productStock');
-    const categoryInput = document.getElementById('productCategory');
-
-    if (!nameInput || !descriptionInput || !priceInput || !wholesalePriceInput || !stockInput || !categoryInput) {
-        alert('Error: No se encontraron todos los campos del formulario');
-        console.error('Campos faltantes:', { nameInput, descriptionInput, priceInput, wholesalePriceInput, stockInput, categoryInput });
-        return;
-    }
-
-    const name = nameInput.value.trim();
-    const description = descriptionInput.value.trim();
-    const price = parseFloat(priceInput.value);
-    const wholesalePrice = parseFloat(wholesalePriceInput.value);
-    const stock = parseInt(stockInput.value);
-    const category = categoryInput.value.trim();
-
-    console.log('Valores del formulario:', { name, description, price, wholesalePrice, stock, category, imagesCount: productImages.length });
-
-    if (!name) {
-        alert('El nombre del producto es requerido');
-        return;
-    }
-
-    if (!description) {
-        alert('La descripción es requerida');
-        return;
-    }
-
-    if (isNaN(price) || price <= 0) {
-        alert('El precio individual debe ser mayor a 0');
-        return;
-    }
-
-    if (isNaN(wholesalePrice) || wholesalePrice <= 0) {
-        alert('El precio mayoreo debe ser mayor a 0');
-        return;
-    }
-
-    if (isNaN(stock) || stock < 0) {
-        alert('El stock debe ser un número válido');
-        return;
-    }
-
-    if (!category) {
-        alert('La categoría es requerida');
-        return;
-    }
-
-    if (productImages.length === 0) {
-        alert('Debes agregar al menos una imagen');
-        return;
-    }
-
-    const productData = {
-        name: name,
-        description: description,
-        price: price,
-        wholesalePrice: wholesalePrice,
-        wholesaleQuantity: parseInt(document.getElementById('productWholesaleQuantity').value) || 4,
-        stock: stock,
-        category: category,
-        brand: document.getElementById('productBrand').value.trim() || '',
-        sku: document.getElementById('productSku').value.trim() || '',
-        images: productImages,
-        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-    };
-
-    // Solo agregar createdAt si es un producto nuevo
-    if (!currentEditingProductId) {
-        productData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
-    }
+async function loadOrders() {
+    const container = document.getElementById('ordersList');
+    if (!container) return;
+    container.innerHTML = '<div class="text-center p-5"><div class="spinner-border text-primary"></div></div>';
 
     try {
-        console.log('Preparando datos del producto:', productData);
+        const snapshot = await rtdb.ref('orders').orderByChild('timestamp').limitToLast(100).once('value');
+        const ordersData = snapshot.val();
 
-        // Mostrar indicador de carga
-        const saveBtn = document.getElementById('saveProductBtn');
-        if (!saveBtn) {
-            alert('Error: No se encontró el botón de guardar');
+        if (!ordersData) {
+            container.innerHTML = '<div class="alert alert-info">No hay pedidos registrados.</div>';
             return;
         }
 
-        const originalBtnText = saveBtn.innerHTML;
-        saveBtn.disabled = true;
-        saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
+        const orders = Object.entries(ordersData).map(([key, value]) => ({
+            id: key,
+            ...value
+        })).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
 
-        console.log('Guardando en Firebase...');
+        // Group by Client
+        const clients = {};
+        orders.forEach(order => {
+            const email = order.userInfo?.email || order.shippingAddress?.email || order.userId || 'invitado@anonym.com';
+            const name = order.userInfo?.fullName || order.shippingAddress?.fullName || 'Invitado';
 
-        if (currentEditingProductId) {
-            console.log('Actualizando producto existente:', currentEditingProductId);
-            await db.collection('products').doc(currentEditingProductId).update(productData);
-            console.log('Producto actualizado exitosamente');
-            alert('Producto actualizado correctamente');
-        } else {
-            console.log('Creando nuevo producto...');
-            const docRef = await db.collection('products').add(productData);
-            console.log('Producto agregado con ID:', docRef.id);
-            alert('Producto agregado correctamente');
+            if (!clients[email]) {
+                clients[email] = {
+                    name: name,
+                    email: email,
+                    orders: [],
+                    totalSpent: 0
+                };
+            }
+            clients[email].orders.push(order);
+            clients[email].totalSpent += (order.total || 0);
+        });
+
+        // Generate Accordion HTML
+        let html = '<div class="accordion" id="ordersAccordion">';
+
+        let index = 0;
+        for (const [email, client] of Object.entries(clients)) {
+            index++;
+            const safeId = `client-${index}`;
+            const totalSpentFormatted = client.totalSpent.toFixed(2);
+
+            // Generate Orders Table for this client
+            let ordersHtml = `
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="bg-light">
+                            <tr>
+                                <th>ID</th>
+                                <th>Total</th>
+                                <th>Estado</th>
+                                <th>Fecha</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+
+            client.orders.forEach(order => {
+                const date = order.timestamp ? new Date(order.timestamp).toLocaleDateString() : 'N/A';
+
+                let statusClass = 'secondary';
+                if (order.status === 'completed' || order.status === 'paid' || order.status === 'delivered') statusClass = 'success';
+                else if (order.status === 'pending') statusClass = 'warning';
+                else if (order.status === 'cancelled') statusClass = 'danger';
+
+                ordersHtml += `
+                    <tr>
+                        <td data-label="ID"><small class="text-muted fw-bold">#${order.id.slice(-6)}</small></td>
+                        <td data-label="Total" class="fw-bold">$${(order.total || 0).toFixed(2)}</td>
+                        <td data-label="Estado"><span class="badge rounded-pill bg-${statusClass}">${order.status || 'pending'}</span></td>
+                        <td data-label="Fecha">${date}</td>
+                        <td data-label="Acciones">
+                            <button class="btn btn-sm btn-primary" onclick="viewOrder('${order.id}')">
+                                <i class="fas fa-eye"></i> Ver
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            ordersHtml += '</tbody></table></div>';
+
+            // Accordion Item
+            html += `
+                <div class="accordion-item mb-3 border-0 shadow-sm rounded-3 overflow-hidden" style="background: white;">
+                    <h2 class="accordion-header" id="heading-${safeId}">
+                        <button class="accordion-button collapsed bg-white p-3" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-${safeId}">
+                             <div class="d-flex align-items-center gap-3 w-100 pe-2">
+                                 <div class="rounded-circle p-2 d-flex align-items-center justify-content-center" style="width:45px;height:45px; background: var(--primary-light); color: var(--primary);">
+                                    <i class="fas fa-user"></i>
+                                 </div>
+                                 <div class="d-flex flex-column text-start">
+                                    <span class="fw-bold text-dark fs-6">${client.name}</span>
+                                    <small class="text-muted" style="font-size: 13px;">${client.orders.length} Pedido(s)</small>
+                                 </div>
+                                 <div class="ms-auto fw-bold text-dark fs-5">$${totalSpentFormatted}</div>
+                             </div>
+                        </button>
+                    </h2>
+                    <div id="collapse-${safeId}" class="accordion-collapse collapse" data-bs-parent="#ordersAccordion">
+                        <div class="accordion-body p-0 border-top">
+                             ${ordersHtml}
+                        </div>
+                    </div>
+                </div>
+            `;
         }
 
-        console.log('Limpiando formulario...');
-        resetProductForm();
-        hideProductForm();
-        loadProducts();
+        html += '</div>';
+        container.innerHTML = html;
 
-        // Restaurar botón
-        saveBtn.disabled = false;
-        saveBtn.innerHTML = originalBtnText;
-        console.log('Proceso completado exitosamente');
     } catch (error) {
-        console.error('Error completo al guardar producto:', error);
-        console.error('Stack trace:', error.stack);
-        const errorMsg = error.message || 'Error desconocido';
-        alert('Error al guardar el producto: ' + errorMsg + '\n\nRevisa la consola para más detalles.');
-
-        // Restaurar botón
-        const saveBtn = document.getElementById('saveProductBtn');
-        if (saveBtn) {
-            saveBtn.disabled = false;
-            saveBtn.innerHTML = '<i class="fas fa-save"></i> Guardar Producto';
-        }
+        console.error('Error loading orders:', error);
+        container.innerHTML = '<div class="alert alert-danger">Error al cargar pedidos: ' + error.message + '</div>';
     }
 }
 
+async function loadUsers() {
+    const container = document.getElementById('usersList');
+    if (!container) return;
+    container.innerHTML = '<div class="text-center p-5"><div class="spinner-border text-primary"></div></div>';
+
+    try {
+        const snapshot = await rtdb.ref('users').limitToLast(100).once('value');
+        const usersData = snapshot.val();
+
+        if (!usersData) {
+            container.innerHTML = '<div class="alert alert-info">No hay usuarios registrados en la base de datos.</div>';
+            return;
+        }
+
+        const users = Object.values(usersData).sort((a, b) => {
+            return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
+        });
+
+        let html = `
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Usuario</th>
+                            <th>Email</th>
+                            <th>Rol</th>
+                            <th>Registrado</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+
+        users.forEach(user => {
+            const date = user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'N/A';
+            const role = user.role || 'customer';
+
+            html += `
+                <tr>
+                    <td data-label="Usuario">
+                        <div class="d-flex align-items-center gap-2 user-info-wrapper">
+                            <div class="bg-light rounded-circle p-2 d-flex align-items-center justify-content-center" style="width:35px;height:35px">
+                                <i class="fas fa-user text-secondary"></i>
+                            </div>
+                            <div class="d-flex flex-column">
+                                <span class="fw-bold text-dark">${user.fullName || user.username || 'Usuario'}</span>
+                                <small class="text-muted d-lg-none">${user.email}</small>
+                            </div>
+                        </div>
+                    </td>
+                    <td data-label="Email" class="d-none d-lg-table-cell text-muted">${user.email || 'N/A'}</td>
+                    <td data-label="Rol"><span class="badge rounded-pill bg-${role === 'admin' ? 'primary' : 'secondary'} px-3">${role}</span></td>
+                    <td data-label="Registrado" class="text-end text-lg-start">${date}</td>
+                </tr>
+            `;
+        });
+
+        html += '</tbody></table></div>';
+        container.innerHTML = html;
+
+    } catch (error) {
+        console.error('Error loading users:', error);
+        container.innerHTML = '<div class="alert alert-danger">Error al cargar usuarios.</div>';
+    }
+}
+
+// Order View & Status Management
+window.viewOrder = (id) => {
+    // Show spinner in modal while loading
+    const modal = document.getElementById('ticketModal');
+    const content = document.getElementById('ticketContent');
+    if (modal) modal.style.display = 'flex';
+    content.innerHTML = '<div class="text-center p-4"><div class="spinner-border text-primary"></div></div>';
+
+    rtdb.ref(`orders/${id}`).once('value').then(snap => {
+        const data = snap.val();
+        if (!data) {
+            content.innerHTML = '<div class="alert alert-danger">Pedido no encontrado</div>';
+            return;
+        }
+
+        const itemsHtml = (data.items || []).map(i => `
+            <div class="d-flex justify-content-between mb-2 pb-2 border-bottom">
+                <span>${i.name} <small class="text-muted">x${i.quantity}</small></span>
+                <span class="fw-bold">$${(i.totalPrice || 0).toFixed(2)}</span>
+            </div>
+        `).join('');
+
+        const currentStatus = data.status || 'pending';
+
+        content.innerHTML = `
+            <h3>Detalles del Pedido <small class="text-muted fs-6">#${id.slice(-6)}</small></h3>
+            <div class="mb-4">
+                <p class="mb-1"><strong>Cliente:</strong> ${data.userInfo?.fullName || 'N/A'}</p>
+                <p class="mb-1"><strong>Email:</strong> ${data.userInfo?.email || 'N/A'}</p>
+                <p class="mb-1"><strong>Método:</strong> ${data.deliveryMethod === 'delivery' ? 'Envío a Domicilio' : 'Recoger en Tienda'}</p>
+            </div>
+
+            <div class="mb-4 p-3 bg-white rounded border">
+                <h5 class="mb-3">Productos</h5>
+                ${itemsHtml}
+                <div class="d-flex justify-content-between mt-2 pt-2">
+                    <span class="fw-bold">Total</span>
+                    <span class="fw-bold text-primary fs-5">$${(data.total || 0).toFixed(2)}</span>
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label fw-bold">Actualizar Estado</label>
+                <select id="statusSelect-${id}" class="form-select mb-2" onchange="updateOrderStatus('${id}', this.value)">
+                    <option value="pending" ${currentStatus === 'pending' ? 'selected' : ''}>Pendiente</option>
+                    <option value="paid" ${currentStatus === 'paid' ? 'selected' : ''}>Pagado (Efectivo/Manual)</option>
+                    <option value="delivered" ${currentStatus === 'delivered' ? 'selected' : ''}>Entregado / Enviado</option>
+                    <option value="completed" ${currentStatus === 'completed' ? 'selected' : ''}>Completado</option>
+                    <option value="cancelled" ${currentStatus === 'cancelled' ? 'selected' : ''}>Cancelado</option>
+                </select>
+                <small class="text-muted">
+                    <i class="fas fa-info-circle"></i> 
+                    Selecciona "Pagado" para confirmar pagos manuales. "Entregado" cuando el producto sale. "Completado" al finalizar todo.
+                </small>
+            </div>
+        `;
+    });
+};
+
+window.updateOrderStatus = (orderId, newStatus) => {
+    if (!confirm(`¿Estás seguro de cambiar el estado a "${newStatus}"?`)) {
+        // Technically should revert select, but reload handles it
+        return;
+    }
+
+    rtdb.ref(`orders/${orderId}`).update({
+        status: newStatus,
+        lastUpdated: firebase.database.ServerValue.TIMESTAMP
+    }).then(() => {
+        alert('Estado actualizado correctamente');
+        loadOrders(); // Refresh table
+        loadStats();  // Refresh stats
+    }).catch(err => {
+        console.error(err);
+        alert('Error al actualizar estado');
+    });
+};
+
+function closeTicketModal() {
+    const modal = document.getElementById('ticketModal');
+    if (modal) modal.style.display = 'none';
+}
+
+
+// ============================================
+// PRODUCTS MANAGEMENT
+// ============================================
+
 async function loadProducts() {
+    const container = document.getElementById('productsList');
+    if (!container) return;
+
+    container.innerHTML = '<div class="text-center p-5"><div class="spinner-border text-primary" role="status"></div></div>';
+
     try {
         const snapshot = await db.collection('products').orderBy('category').get();
         const products = {};
 
         snapshot.forEach(doc => {
             const product = { id: doc.id, ...doc.data() };
+            // Ensure numeric values
+            product.price = parseFloat(product.price) || 0;
+            product.wholesalePrice = parseFloat(product.wholesalePrice) || 0;
+            product.stock = parseInt(product.stock) || 0;
+
             if (!products[product.category]) {
                 products[product.category] = [];
             }
@@ -624,6 +484,7 @@ async function loadProducts() {
         displayProducts(products);
     } catch (error) {
         console.error('Error al cargar productos:', error);
+        container.innerHTML = '<div class="alert alert-danger">Error al cargar productos. Por favor recarga la página.</div>';
     }
 }
 
@@ -631,23 +492,30 @@ function displayProducts(productsByCategory) {
     const container = document.getElementById('productsList');
     container.innerHTML = '';
 
+    if (Object.keys(productsByCategory).length === 0) {
+        container.innerHTML = '<div class="alert alert-info">No hay productos registrados.</div>';
+        return;
+    }
+
     Object.keys(productsByCategory).sort().forEach(category => {
         const categoryGroup = document.createElement('div');
-        categoryGroup.className = 'category-group';
+        categoryGroup.className = 'category-group mb-4';
 
         const header = document.createElement('div');
         header.className = 'category-header';
         header.innerHTML = `
-            <h3>${category} (${productsByCategory[category].length})</h3>
+            <h3>${category} <span style="font-size: 13px; color: var(--secondary); font-weight: 500;">(${productsByCategory[category].length})</span></h3>
             <i class="fas fa-chevron-down"></i>
         `;
-        header.onclick = () => {
-            const content = categoryGroup.querySelector('.category-content');
-            content.style.display = content.style.display === 'none' ? 'block' : 'none';
-        };
 
         const content = document.createElement('div');
         content.className = 'category-content';
+
+        header.onclick = () => {
+            const isHidden = content.style.display === 'none';
+            content.style.display = isHidden ? 'grid' : 'none';
+            header.querySelector('i').style.transform = isHidden ? 'rotate(180deg)' : 'rotate(0deg)';
+        };
 
         productsByCategory[category].forEach(product => {
             const card = createProductCard(product);
@@ -664,21 +532,26 @@ function createProductCard(product) {
     const card = document.createElement('div');
     card.className = 'product-card';
 
+    const image = (product.images && product.images.length > 0) ? product.images[0] : 'https://placehold.co/150x150?text=No+Image';
+
     card.innerHTML = `
-        <img src="${product.images?.[0] || '/placeholder.jpg'}" alt="${product.name}" class="product-card-image">
-        <div class="product-card-info">
-            <h4>${product.name}</h4>
-            <p><strong>Categoría:</strong> ${product.category}</p>
-            <p><strong>Precio Individual:</strong> $${product.price.toFixed(2)}</p>
-            <p><strong>Precio Mayoreo:</strong> $${product.wholesalePrice.toFixed(2)} (min. ${product.wholesaleQuantity})</p>
-            <p><strong>Stock:</strong> ${product.stock}</p>
+        <div style="height: 120px; width: 100%; display: flex; align-items: center; justify-content: center; margin-bottom: 10px; overflow: hidden; border-radius: 8px;">
+<img src="${image}" alt="${product.name}" style="max-height: 100%; max-width: 100%; object-fit: contain;" onerror="this.onerror=null; this.src='https://placehold.co/150x150?text=No+Image';">
         </div>
-        <div class="product-card-actions">
-            <button class="btn btn-primary" onclick="editProduct('${product.id}')">
-                <i class="fas fa-edit"></i> Editar
+        <div class="product-card-info">
+            <h4 style="font-size: 16px; margin-bottom: 5px; font-weight: 600;">${product.name}</h4>
+            <div style="display: flex; gap: 12px; margin-bottom: 8px; font-size: 14px; color: var(--slate-700);">
+                <p><i class="fas fa-tag"></i> $${product.price.toFixed(2)}</p>
+                <p><i class="fas fa-boxes"></i> ${product.stock}</p>
+            </div>
+            <p style="font-size: 11px; opacity: 0.8; margin-bottom: 10px;">Brand: ${product.brand || 'N/A'}</p>
+        </div>
+        <div class="product-card-actions" style="display: flex; gap: 8px;">
+            <button class="btn btn-primary btn-sm" style="flex: 1;" onclick="editProduct('${product.id}')">
+                <i class="fas fa-pen"></i> Editar
             </button>
-            <button class="btn btn-danger" onclick="deleteProduct('${product.id}')">
-                <i class="fas fa-trash"></i> Eliminar
+            <button class="btn btn-danger btn-sm" onclick="deleteProduct('${product.id}')">
+                <i class="fas fa-trash"></i>
             </button>
         </div>
     `;
@@ -686,663 +559,345 @@ function createProductCard(product) {
     return card;
 }
 
-async function editProduct(productId) {
-    try {
-        const doc = await db.collection('products').doc(productId).get();
-        if (!doc.exists) {
-            alert('Producto no encontrado');
-            return;
-        }
-
-        const product = doc.data();
-        currentEditingProductId = productId;
-
-        document.getElementById('productName').value = product.name || '';
-        document.getElementById('productDescription').value = product.description || '';
-        document.getElementById('productPrice').value = product.price || '';
-        document.getElementById('productWholesalePrice').value = product.wholesalePrice || '';
-        document.getElementById('productWholesaleQuantity').value = product.wholesaleQuantity || 4;
-        document.getElementById('productStock').value = product.stock || '';
-        document.getElementById('productCategory').value = product.category || '';
-        document.getElementById('productBrand').value = product.brand || '';
-        document.getElementById('productSku').value = product.sku || '';
-
-        productImages = product.images || [];
-        currentPrimaryImageIndex = 0;
-        updateImagePreview();
-
-        document.getElementById('saveProductBtn').innerHTML = '<i class="fas fa-save"></i> Guardar Cambios';
-        showProductForm();
-    } catch (error) {
-        console.error('Error al cargar producto:', error);
-        alert('Error al cargar el producto');
-    }
+// Product Form Functions
+function showProductForm() {
+    document.getElementById('productFormContainer').style.display = 'block';
+    document.getElementById('addProductBtn').style.display = 'none';
+    document.getElementById('productFormContainer').scrollIntoView({ behavior: 'smooth' });
 }
 
-async function deleteProduct(productId) {
-    if (!confirm('¿Estás seguro de eliminar este producto?')) {
-        return;
-    }
-
-    try {
-        await db.collection('products').doc(productId).delete();
-        alert('Producto eliminado correctamente');
-        loadProducts();
-    } catch (error) {
-        console.error('Error al eliminar producto:', error);
-        alert('Error al eliminar el producto');
-    }
+function hideProductForm() {
+    document.getElementById('productFormContainer').style.display = 'none';
+    document.getElementById('addProductBtn').style.display = 'inline-flex';
 }
 
-// Orders Management
-let allOrders = [];
-
-async function loadOrders() {
-    try {
-        const snapshot = await rtdb.ref('orders').once('value');
-        const ordersData = snapshot.val();
-
-        if (!ordersData) {
-            document.getElementById('ordersList').innerHTML = '<p>No hay pedidos</p>';
-            allOrders = [];
-            return;
-        }
-
-        allOrders = Object.keys(ordersData).map(key => ({
-            id: key,
-            ...ordersData[key]
-        }))
-            .filter(order => order.status !== 'checkout_session') // Ocultar intentos de sesión de Stripe
-            .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
-
-        applyOrderFilters();
-    } catch (error) {
-        console.error('Error al cargar pedidos:', error);
-    }
+function resetProductForm() {
+    document.getElementById('productForm').reset();
+    productImages = [];
+    currentEditingProductId = null;
+    updateImagePreview();
+    document.getElementById('saveProductBtn').innerHTML = 'Publicar Producto';
 }
 
-function applyOrderFilters() {
-    const statusFilter = document.getElementById('orderStatusFilter')?.value || '';
-    const paymentFilter = document.getElementById('orderPaymentFilter')?.value || '';
-
-    let filtered = [...allOrders];
-
-    if (statusFilter) {
-        filtered = filtered.filter(order => order.status === statusFilter);
-    }
-
-    if (paymentFilter) {
-        filtered = filtered.filter(order => order.paymentMethod === paymentFilter);
-    }
-
-    // Asegurar que nunca se muestren intentos de sesión, incluso con filtros activos
-    filtered = filtered.filter(order => order.status !== 'checkout_session');
-
-    displayOrders(filtered);
+function addImageToPreview(url) {
+    productImages.push(url);
+    updateImagePreview();
 }
 
-function setupOrderFilters() {
-    const statusFilter = document.getElementById('orderStatusFilter');
-    const paymentFilter = document.getElementById('orderPaymentFilter');
-
-    if (statusFilter) {
-        statusFilter.addEventListener('change', applyOrderFilters);
-    }
-
-    if (paymentFilter) {
-        paymentFilter.addEventListener('change', applyOrderFilters);
-    }
-}
-
-function displayOrders(orders) {
-    const container = document.getElementById('ordersList');
+function updateImagePreview() {
+    const container = document.getElementById('imagePreviewContainer');
     container.innerHTML = '';
 
-    // Group by customer
-    const ordersByCustomer = {};
-    orders.forEach(order => {
-        const customerKey = order.userInfo?.email || 'unknown';
-        if (!ordersByCustomer[customerKey]) {
-            ordersByCustomer[customerKey] = {
-                customer: order.userInfo,
-                orders: []
-            };
-        }
-        ordersByCustomer[customerKey].orders.push(order);
-    });
-
-    Object.values(ordersByCustomer).forEach(({ customer, orders: customerOrders }) => {
-        const group = document.createElement('div');
-        group.className = 'customer-group';
-
-        const header = document.createElement('div');
-        header.className = 'customer-header';
-        header.innerHTML = `
-            <div>
-                <h3>${customer?.fullName || 'Cliente'}</h3>
-                <p>${customer?.email || ''} | ${customer?.phone || ''}</p>
+    productImages.forEach((url, index) => {
+        const div = document.createElement('div');
+        div.className = 'image-preview-item';
+        div.innerHTML = `
+            <img src="${url}" alt="Preview">
+            <div class="image-actions">
+                <button type="button" onclick="removeProductImage(${index})"><i class="fas fa-times"></i></button>
             </div>
-            <i class="fas fa-chevron-down"></i>
         `;
+        container.appendChild(div);
+    });
+}
 
-        const content = document.createElement('div');
-        content.className = 'customer-orders';
+function removeProductImage(index) {
+    productImages.splice(index, 1);
+    updateImagePreview();
+}
 
-        customerOrders.forEach(order => {
-            const card = createOrderCard(order);
-            content.appendChild(card);
-        });
+async function saveProduct() {
+    const btn = document.getElementById('saveProductBtn');
+    const originalText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
 
-        header.onclick = () => {
-            content.style.display = content.style.display === 'none' ? 'block' : 'none';
+    try {
+        const productData = {
+            name: document.getElementById('productName').value.trim(),
+            category: document.getElementById('productCategory').value.trim(),
+            description: document.getElementById('productDescription').value.trim(),
+            price: parseFloat(document.getElementById('productPrice').value),
+            wholesalePrice: parseFloat(document.getElementById('productWholesalePrice').value),
+            wholesaleQuantity: parseInt(document.getElementById('productWholesaleQuantity').value) || 4,
+            stock: parseInt(document.getElementById('productStock').value),
+            brand: document.getElementById('productBrand').value.trim(),
+            sku: document.getElementById('productSku').value.trim(),
+            images: productImages,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
         };
 
-        group.appendChild(header);
-        group.appendChild(content);
-        container.appendChild(group);
+        if (currentEditingProductId) {
+            await db.collection('products').doc(currentEditingProductId).update(productData);
+            alert('Producto actualizado correctamente');
+        } else {
+            productData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+            await db.collection('products').add(productData);
+            alert('Producto creado correctamente');
+        }
+
+        resetProductForm();
+        hideProductForm();
+        loadProducts();
+
+    } catch (error) {
+        console.error('Error saving product:', error);
+        alert('Error al guardar: ' + error.message);
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+    }
+}
+
+async function editProduct(id) {
+    try {
+        const doc = await db.collection('products').doc(id).get();
+        if (!doc.exists) return;
+
+        const data = doc.data();
+        currentEditingProductId = id;
+
+        document.getElementById('productName').value = data.name || '';
+        document.getElementById('productCategory').value = data.category || '';
+        document.getElementById('productDescription').value = data.description || '';
+        document.getElementById('productPrice').value = data.price || '';
+        document.getElementById('productWholesalePrice').value = data.wholesalePrice || '';
+        document.getElementById('productWholesaleQuantity').value = data.wholesaleQuantity || 4;
+        document.getElementById('productStock').value = data.stock || '';
+        document.getElementById('productBrand').value = data.brand || '';
+        document.getElementById('productSku').value = data.sku || '';
+
+        productImages = data.images || [];
+        updateImagePreview();
+
+        document.getElementById('saveProductBtn').innerHTML = 'Actualizar Producto';
+        showProductForm();
+
+    } catch (error) {
+        console.error('Error loading product for edit:', error);
+        alert('Error al cargar producto');
+    }
+}
+
+async function deleteProduct(id) {
+    if (!confirm('¿Estás seguro de eliminar este producto?')) return;
+    try {
+        await db.collection('products').doc(id).delete();
+        loadProducts();
+        alert('Producto eliminado');
+    } catch (error) {
+        console.error('Error deleting product:', error);
+        alert('Error al eliminar');
+    }
+}
+
+// ============================================
+// CAROUSEL & FILES (CLOUDINARY)
+// ============================================
+
+window.handleAddCarouselImage = async () => {
+    const nameInput = document.getElementById('carouselNameInput');
+    const urlInput = document.getElementById('carouselUrlInput');
+    const url = urlInput.value.trim();
+    const name = nameInput ? nameInput.value.trim() : 'Nueva Imagen';
+
+    if (!url) { alert('URL requerida'); return; }
+
+    try {
+        await db.collection('hero_carousel').add({
+            name: name,
+            image: url,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        urlInput.value = '';
+        if (nameInput) nameInput.value = '';
+        loadCarouselImages();
+        alert('Imagen agregada');
+    } catch (e) {
+        console.error(e);
+        alert('Error al agregar');
+    }
+};
+
+window.handleAddCarouselFile = function () {
+    if (typeof openCloudinaryWidget === 'undefined') {
+        alert('Cloudinary no disponible. Recarga la página.');
+        return;
+    }
+    openCloudinaryWidget(async (url) => {
+        try {
+            const nameInput = document.getElementById('carouselNameInput');
+            const name = nameInput ? nameInput.value.trim() : 'Imagen Subida';
+
+            await db.collection('hero_carousel').add({
+                name: name,
+                image: url,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+
+            if (nameInput) nameInput.value = '';
+            loadCarouselImages();
+            alert('Imagen subida correctamente');
+        } catch (e) {
+            console.error(e);
+            alert('Error al guardar en base de datos');
+        }
+    });
+};
+
+// Also for PRODUCTS file upload
+function handleAddProductFile() {
+    if (typeof openCloudinaryWidget === 'undefined') {
+        alert('Cloudinary no disponible. Recarga la página.');
+        return;
+    }
+    openCloudinaryWidget((url) => {
+        addImageToPreview(url);
     });
 }
 
-function createOrderCard(order) {
-    const card = document.createElement('div');
-    card.className = 'order-card';
+async function loadCarouselImages() {
+    const container = document.getElementById('carouselList');
+    if (!container) return;
+    container.innerHTML = '<div class="spinner-border text-primary"></div>';
 
-    const statusClass = order.status || 'pending';
-    const statusText = {
-        'pending': 'Pendiente',
-        'paid': 'Pagado',
-        'completed': 'Completado',
-        'cancelled': 'Cancelado'
-    }[statusClass] || 'Pendiente';
+    try {
+        const snapshot = await db.collection('hero_carousel').orderBy('createdAt', 'desc').get();
+        if (snapshot.empty) {
+            container.innerHTML = '<p>No hay imágenes en el carrusel</p>';
+            return;
+        }
 
-    // Unified payment method display
-    let paymentMethodDisplay = 'WhatsApp';
-    if (order.paymentMethod === 'card') paymentMethodDisplay = 'Tarjeta';
-    if (order.paymentMethod === 'cash') paymentMethodDisplay = 'Efectivo';
-
-    // Unified delivery type display
-    let deliveryType = 'Envío a domicilio';
-    const dMethod = order.deliveryMethod || order.deliveryInfo?.type;
-    if (dMethod === 'store' || dMethod === 'pickup') deliveryType = 'Recoger en tienda';
-
-    // Unified address display
-    let addressHtml = '';
-    const addr = order.shippingAddress || order.deliveryInfo?.address;
-    if (addr && dMethod !== 'store' && dMethod !== 'pickup') {
-        const street = addr.street || '';
-        const num = addr.externalNumber || '';
-        const neighborhood = addr.neighborhood || '';
-        const zip = addr.zipCode || '';
-        const city = addr.city || '';
-        const state = addr.state || '';
-        const refs = addr.references || '';
-
-        addressHtml = `
-            <p><strong>Dirección:</strong> ${street} ${num}, ${neighborhood}, CP ${zip}, ${city} ${state}</p>
-            ${refs ? `<p><strong>Referencias:</strong> ${refs}</p>` : ''}
-        `;
+        container.innerHTML = '';
+        snapshot.forEach(doc => {
+            const data = doc.data();
+            const div = document.createElement('div');
+            div.className = 'product-card';
+            div.innerHTML = `
+                <div style="height: 150px; display: flex; align-items: center; justify-content: center; overflow: hidden; margin-bottom: 10px;">
+                    <img src="${data.image}" style="max-height: 100%; max-width: 100%; object-fit: contain;">
+                </div>
+                <p style="text-align: center; font-weight: bold;">${data.name || 'Sin nombre'}</p>
+                <button class="btn btn-danger btn-sm w-100" onclick="deleteCarouselImage('${doc.id}')">Eliminar</button>
+            `;
+            container.appendChild(div);
+        });
+    } catch (e) {
+        console.error(e);
+        container.innerHTML = '<p class="text-danger">Error al cargar carrusel</p>';
     }
+}
 
-    card.innerHTML = `
-        <div class="order-header-info">
-            <div>
-                <h4>Pedido #${order.orderId?.substring(6) || order.id}</h4>
-                <p>${new Date(order.timestamp).toLocaleString('es-ES')}</p>
-            </div>
-            <span class="order-status ${statusClass}">${statusText}</span>
-        </div>
-        <div class="order-items-list">
-            ${order.items?.map(item => `
-                <div class="order-item">
-                    <img src="${item.images?.[0] || '/placeholder.jpg'}" alt="${item.name}" class="order-item-image">
-                    <div>
-                        <p><strong>${item.name}</strong></p>
-                        <p>Cantidad: ${item.quantity} | Precio: $${(item.unitPrice || item.price || 0).toFixed(2)}</p>
-                        <p>Subtotal: $${(item.totalPrice || (item.unitPrice * item.quantity) || 0).toFixed(2)}</p>
+window.deleteCarouselImage = async (id) => {
+    if (confirm('¿Eliminar?')) {
+        await db.collection('hero_carousel').doc(id).delete();
+        loadCarouselImages();
+    }
+};
+
+window.restoreDefaultCarousel = async () => {
+    if (!confirm('¿Restaurar originales? Se borrarán las actuales.')) return;
+    alert('Función de restaurar pendientes'); // Placeholder
+};
+
+
+// ============================================
+// PROMOTIONS MANAGEMENT
+// ============================================
+window.loadPromotions = async function () {
+    const container = document.getElementById('promotionsList');
+    if (!container) return;
+    container.innerHTML = '<div class="text-center p-5"><div class="spinner-border text-primary"></div></div>';
+
+    try {
+        const snapshot = await db.collection('promotions').orderBy('createdAt', 'desc').get();
+
+        if (snapshot.empty) {
+            container.innerHTML = '<div class="alert alert-info">No hay promociones agregadas.</div>';
+            return;
+        }
+
+        let html = '';
+        snapshot.forEach(doc => {
+            const promo = doc.data();
+            html += `
+                <div class="product-card">
+                    <div style="aspect-ratio: 4/5; background: #f0f0f0; border-radius: 8px; overflow: hidden; margin-bottom: 10px; position:relative;">
+                        <img src="${promo.image}" style="width:100%; height:100%; object-fit:cover;">
+                    </div>
+                    <div class="p-2">
+                        <h4 style="font-size: 14px; margin-bottom: 5px; font-weight: bold;">${promo.title || 'Sin Título'}</h4>
+                        <button class="btn btn-danger btn-sm w-100" onclick="deletePromotion('${doc.id}')">
+                            <i class="fas fa-trash"></i> Eliminar
+                        </button>
                     </div>
                 </div>
-            `).join('') || ''}
-        </div>
-        <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--border-color);">
-            <p><strong>Total: $${order.total?.toFixed(2)}</strong></p>
-            <p><strong>Método de pago:</strong> ${paymentMethodDisplay}</p>
-            <p><strong>Tipo de entrega:</strong> ${deliveryType}</p>
-            ${addressHtml}
-        </div>
-        <div class="order-actions">
-            <button class="btn btn-primary" onclick="changeOrderStatus('${order.id}', '${order.status}')">
-                <i class="fas fa-edit"></i> Cambiar Estado
-            </button>
-            <button class="btn btn-secondary" onclick="printOrderTicket('${order.id}')">
-                <i class="fas fa-print"></i> Imprimir Ticket
-            </button>
-        </div>
-    `;
+            `;
+        });
+        container.innerHTML = html;
 
-    return card;
-}
+    } catch (error) {
+        console.error('Error loading promotions:', error);
+        container.innerHTML = '<div class="alert alert-danger">Error al cargar promociones.</div>';
+    }
+};
 
-async function changeOrderStatus(orderId, currentStatus) {
-    const statuses = ['pending', 'completed', 'cancelled'];
-    const currentIndex = statuses.indexOf(currentStatus);
-    const nextStatus = statuses[(currentIndex + 1) % statuses.length];
+window.handleAddPromotion = async function () {
+    const titleInput = document.getElementById('promoTitleInput');
+    const imageInput = document.getElementById('promoImageInput');
+
+    const title = titleInput.value.trim();
+    const image = imageInput.value.trim();
+
+    if (!image) return alert('Por favor ingresa la URL de la imagen.');
 
     try {
-        await rtdb.ref(`orders/${orderId}`).update({
-            status: nextStatus,
-            updatedAt: Date.now()
+        await db.collection('promotions').add({
+            title,
+            image,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
-        loadOrders();
+
+        alert('Promoción agregada exitosamente');
+        titleInput.value = '';
+        imageInput.value = '';
+        loadPromotions();
+
     } catch (error) {
-        console.error('Error al cambiar estado:', error);
-        alert('Error al cambiar el estado del pedido');
+        console.error('Error adding promotion:', error);
+        alert('Error al agregar promoción');
+    }
+};
+
+window.handleUploadPromotion = function () {
+    if (window.openCloudinaryWidget) {
+        window.openCloudinaryWidget((url) => {
+            document.getElementById('promoImageInput').value = url;
+        });
+    } else {
+        alert("Error: Widget de Cloudinary no cargado. Verifica tu conexión.");
     }
 }
 
-async function printOrderTicket(orderId) {
-    try {
-        const snapshot = await rtdb.ref(`orders/${orderId}`).once('value');
-        const order = snapshot.val();
-
-        if (!order) {
-            alert('Pedido no encontrado');
-            return;
-        }
-
-        const ticketContent = document.getElementById('ticketContent');
-        ticketContent.innerHTML = `
-            <h2>Un Mundo de Color</h2>
-            <div class="ticket-info">
-                <p><strong>Fecha:</strong> ${new Date(order.timestamp).toLocaleString('es-ES')}</p>
-                <p><strong>Pedido #:</strong> ${order.orderId?.substring(6) || orderId}</p>
-                <p><strong>Cliente:</strong> ${order.userInfo?.fullName || ''}</p>
-                <p><strong>Email:</strong> ${order.userInfo?.email || ''}</p>
-                <p><strong>Teléfono:</strong> ${order.userInfo?.phone || ''}</p>
-            </div>
-            <div class="ticket-items">
-                <h3>Productos:</h3>
-                ${order.items?.map(item => `
-                    <div class="ticket-item">
-                        <span>${item.name} x${item.quantity}</span>
-                        <span>$${item.totalPrice.toFixed(2)}</span>
-                    </div>
-                `).join('') || ''}
-            </div>
-            <div class="ticket-total">
-                <span>Total:</span>
-                <span>$${order.total?.toFixed(2)}</span>
-            </div>
-        `;
-
-        document.getElementById('ticketModal').style.display = 'flex';
-    } catch (error) {
-        console.error('Error al cargar ticket:', error);
-        alert('Error al generar el ticket');
-    }
-}
-
-function closeTicketModal() {
-    document.getElementById('ticketModal').style.display = 'none';
-}
-
-function printTicket() {
-    window.print();
-}
-
-// Users Management
-async function loadUsers() {
-    try {
-        const snapshot = await rtdb.ref('users').once('value');
-        const usersData = snapshot.val();
-
-        if (!usersData) {
-            document.getElementById('usersList').innerHTML = '<p>No hay usuarios</p>';
-            return;
-        }
-
-        const users = Object.keys(usersData).map(key => ({
-            id: key,
-            ...usersData[key]
-        }));
-
-        // Get orders for each user
-        const ordersSnapshot = await rtdb.ref('orders').once('value');
-        const ordersData = ordersSnapshot.val() || {};
-        const orders = Object.values(ordersData);
-
-        displayUsers(users, orders);
-    } catch (error) {
-        console.error('Error al cargar usuarios:', error);
-    }
-}
-
-function displayUsers(users, orders) {
-    const container = document.getElementById('usersList');
-    container.innerHTML = '';
-
-    users.forEach(user => {
-        const userOrders = orders.filter(o => o.userId === user.id);
-        const totalSpent = userOrders.reduce((sum, o) => sum + (o.total || 0), 0);
-
-        const card = document.createElement('div');
-        card.className = 'user-card';
-        card.innerHTML = `
-            <h4>${user.fullName || 'Usuario'}</h4>
-            <p><strong>Email:</strong> ${user.email || ''}</p>
-            <p><strong>Teléfono:</strong> ${user.phone || ''}</p>
-            <p><strong>Ubicación:</strong> ${user.location || ''}</p>
-            <p><strong>Fecha de registro:</strong> ${new Date(user.createdAt).toLocaleDateString('es-ES')}</p>
-            <p><strong>Total de pedidos:</strong> ${userOrders.length}</p>
-            <p><strong>Total gastado:</strong> $${totalSpent.toFixed(2)}</p>
-        `;
-        container.appendChild(card);
-    });
-}
-
-// Stats Management
-async function loadStats() {
-    try {
-        // Load all data
-        const [productsSnapshot, ordersSnapshot, usersSnapshot] = await Promise.all([
-            db.collection('products').get(),
-            rtdb.ref('orders').once('value'),
-            rtdb.ref('users').once('value')
-        ]);
-
-        const products = productsSnapshot.size;
-        const ordersData = ordersSnapshot.val() || {};
-        // Filtrar pedidos reales (excluir intentos de sesión)
-        const allOrdersArray = Object.values(ordersData).filter(o => o.status !== 'checkout_session');
-        const orders = allOrdersArray;
-        const users = Object.keys(usersSnapshot.val() || {}).length;
-
-        // Filtrar pedidos pagados o completados para el cálculo de ingresos
-        const paidOrders = orders.filter(o => o.status === 'paid' || o.status === 'completed');
-        const totalSales = paidOrders.reduce((sum, o) => sum + (o.total || 0), 0);
-
-        const cardPayments = orders.filter(o => o.paymentMethod === 'card').length;
-        const whatsappPayments = orders.filter(o => o.paymentMethod === 'whatsapp').length;
-        const pickupOrders = orders.filter(o => o.deliveryInfo?.type === 'pickup').length;
-        const deliveryOrders = orders.filter(o => o.deliveryInfo?.type === 'delivery').length;
-
-        // Update stats
-        document.getElementById('totalSales').textContent = `$${totalSales.toFixed(2)}`;
-        document.getElementById('totalOrdersStat').textContent = orders.length;
-        document.getElementById('totalCustomersStat').textContent = users;
-        document.getElementById('totalProductsStat').textContent = products;
-
-        // Update header stats
-        document.getElementById('totalOrders').textContent = orders.length;
-        document.getElementById('totalRevenue').textContent = `$${totalSales.toFixed(2)}`;
-        document.getElementById('totalUsers').textContent = users;
-
-        // Create charts based on paid orders for actual sales stats
-        createSalesChart(paidOrders);
-        await createCategoryChart(paidOrders);
-        createTopProductsChart(paidOrders);
-        createPaymentMethodChart(cardPayments, whatsappPayments);
-        createDeliveryChart(pickupOrders, deliveryOrders);
-    } catch (error) {
-        console.error('Error al cargar estadísticas:', error);
-    }
-}
-
-function createSalesChart(orders) {
-    const ctx = document.getElementById('salesChart');
-    if (!ctx) return;
-
-    // Destroy existing chart if it exists
-    if (ctx.chart) {
-        ctx.chart.destroy();
-    }
-
-    // Group by month
-    const monthlySales = {};
-    orders.forEach(order => {
-        const date = new Date(order.timestamp);
-        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-        if (!monthlySales[monthKey]) {
-            monthlySales[monthKey] = 0;
-        }
-        monthlySales[monthKey] += order.total || 0;
-    });
-
-    const labels = Object.keys(monthlySales).sort();
-    const data = labels.map(key => monthlySales[key]);
-
-    ctx.chart = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: labels,
-            datasets: [{
-                label: 'Ventas',
-                data: data,
-                borderColor: '#0056b3',
-                backgroundColor: 'rgba(0, 86, 179, 0.1)',
-                tension: 0.4
-            }]
-        },
-        options: {
-            responsive: true,
-            plugins: {
-                legend: {
-                    labels: { color: '#1d3557' }
-                }
-            },
-            scales: {
-                y: {
-                    ticks: { color: '#1d3557' },
-                    grid: { color: 'rgba(0, 0, 0, 0.05)' }
-                },
-                x: {
-                    ticks: { color: '#1d3557' },
-                    grid: { color: 'rgba(0, 0, 0, 0.05)' }
-                }
-            }
-        }
-    });
-}
-
-async function createCategoryChart(orders) {
-    const ctx = document.getElementById('categoryChart');
-    if (!ctx) return;
+window.deletePromotion = async function (id) {
+    if (!confirm('¿Estás seguro de eliminar esta promoción?')) return;
 
     try {
-        // Fetch products to map items to categories
-        const productsSnapshot = await db.collection('products').get();
-        const productsMap = {};
-        productsSnapshot.forEach(doc => {
-            productsMap[doc.id] = doc.data();
-        });
-
-        // Calculate sales by category
-        const categoryData = {};
-        orders.forEach(order => {
-            order.items?.forEach(item => {
-                const product = productsMap[item.productId];
-                if (product && product.category) {
-                    const category = product.category;
-                    categoryData[category] = (categoryData[category] || 0) + (item.totalPrice || 0);
-                }
-            });
-        });
-
-        const labels = Object.keys(categoryData);
-        const data = Object.values(categoryData);
-
-        // Generate colors for categories - Blue and Red palette
-        const colors = ['#0056b3', '#e63946', '#1d3557', '#f1faee', '#457b9d', '#ffb703'];
-        const backgroundColors = labels.map((_, index) => colors[index % colors.length]);
-
-        if (ctx.chart) {
-            ctx.chart.destroy();
-        }
-
-        ctx.chart = new Chart(ctx, {
-            type: 'doughnut',
-            data: {
-                labels: labels.length > 0 ? labels : ['Sin datos'],
-                datasets: [{
-                    data: data.length > 0 ? data : [1],
-                    backgroundColor: backgroundColors
-                }]
-            },
-            options: {
-                responsive: true,
-                plugins: {
-                    legend: {
-                        labels: { color: '#1d3557' },
-                        position: 'right'
-                    }
-                }
-            }
-        });
+        await db.collection('promotions').doc(id).delete();
+        loadPromotions();
     } catch (error) {
-        console.error('Error al crear gráfico de categorías:', error);
+        console.error('Error deleting promotion:', error);
+        alert('Error al eliminar');
     }
-}
+};
 
-function createTopProductsChart(orders) {
-    const ctx = document.getElementById('topProductsChart');
-    if (!ctx) return;
 
-    if (ctx.chart) {
-        ctx.chart.destroy();
-    }
-
-    const productCounts = {};
-    orders.forEach(order => {
-        order.items?.forEach(item => {
-            productCounts[item.name] = (productCounts[item.name] || 0) + item.quantity;
-        });
-    });
-
-    const sorted = Object.entries(productCounts)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 5);
-
-    ctx.chart = new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: sorted.map(([name]) => name),
-            datasets: [{
-                label: 'Cantidad vendida',
-                data: sorted.map(([, count]) => count),
-                backgroundColor: '#0056b3'
-            }]
-        },
-        options: {
-            responsive: true,
-            plugins: {
-                legend: {
-                    labels: { color: '#1d3557' }
-                }
-            },
-            scales: {
-                y: {
-                    ticks: { color: '#1d3557' },
-                    grid: { color: 'rgba(0, 0, 0, 0.05)' }
-                },
-                x: {
-                    ticks: { color: '#1d3557' },
-                    grid: { color: 'rgba(0, 0, 0, 0.05)' }
-                }
-            }
-        }
-    });
-}
-
-function createPaymentMethodChart(card, whatsapp) {
-    const ctx = document.getElementById('paymentMethodChart');
-    if (!ctx) return;
-
-    if (ctx.chart) {
-        ctx.chart.destroy();
-    }
-
-    ctx.chart = new Chart(ctx, {
-        type: 'pie',
-        data: {
-            labels: ['Tarjeta', 'WhatsApp'],
-            datasets: [{
-                data: [card, whatsapp],
-                backgroundColor: ['#0056b3', '#e63946']
-            }]
-        },
-        options: {
-            responsive: true,
-            plugins: {
-                legend: {
-                    labels: { color: '#1d3557' }
-                }
-            }
-        }
-    });
-}
-
-function createDeliveryChart(pickup, delivery) {
-    // Check if chart canvas exists in HTML
-    const canvas = document.getElementById('deliveryChart');
-    if (!canvas) return;
-
-    if (canvas.chart) {
-        canvas.chart.destroy();
-    }
-
-    canvas.chart = new Chart(canvas, {
-        type: 'pie',
-        data: {
-            labels: ['Recoger en tienda', 'Envío a domicilio'],
-            datasets: [{
-                data: [pickup, delivery],
-                backgroundColor: ['#0056b3', '#e63946']
-            }]
-        },
-        options: {
-            responsive: true,
-            plugins: {
-                legend: {
-                    labels: { color: '#1d3557' }
-                }
-            }
-        }
-    });
-}
-
-// Real-time updates for header stats
-function setupRealtimeStats() {
-    // Listen to orders changes
-    rtdb.ref('orders').on('value', (snapshot) => {
-        const ordersData = snapshot.val() || {};
-        const allOrdersArray = Object.values(ordersData).filter(o => o.status !== 'checkout_session');
-        const orders = allOrdersArray;
-
-        // Filtrar solo pedidos pagados o completados para ingresos en tiempo real
-        const paidOrders = orders.filter(o => o.status === 'paid' || o.status === 'completed');
-        const totalSales = paidOrders.reduce((sum, o) => sum + (o.total || 0), 0);
-
-        const totalOrdersElem = document.getElementById('totalOrders');
-        const totalRevenueElem = document.getElementById('totalRevenue');
-
-        if (totalOrdersElem) totalOrdersElem.textContent = orders.length;
-        if (totalRevenueElem) totalRevenueElem.textContent = `$${totalSales.toFixed(2)}`;
-    });
-
-    // Listen to users changes
-    rtdb.ref('users').on('value', (snapshot) => {
-        const usersData = snapshot.val() || {};
-        const usersCount = Object.keys(usersData).length;
-        const totalUsersElem = document.getElementById('totalUsers');
-        if (totalUsersElem) totalUsersElem.textContent = usersCount;
-    });
-}
-
-// Initialization is now handled in initializeApp() which is called on DOMContentLoaded
-
-// Make functions global for onclick handlers
+// ============================================
+// EXPOSE GLOBALS
+// ============================================
+window.removeProductImage = removeProductImage;
 window.editProduct = editProduct;
 window.deleteProduct = deleteProduct;
-window.changeOrderStatus = changeOrderStatus;
-window.printOrderTicket = printOrderTicket;
-window.closeTicketModal = closeTicketModal;
-window.printTicket = printTicket;
+
+// Initialize on load
+document.addEventListener('DOMContentLoaded', initializeFirebase);

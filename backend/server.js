@@ -78,7 +78,9 @@ app.post('/stripe/webhook', express.raw({ type: 'application/json' }), async (re
 // Middleware standard
 app.use(helmet());
 app.use(cors({ origin: true })); // Permitir todas las conexiones por ahora (dev)
-app.use(express.json());
+// Aumentar el límite a 50mb para evitar errores 413 (Payload Too Large)
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // Endpoints
 app.get('/', (req, res) => {
@@ -158,14 +160,11 @@ setInterval(async () => {
     console.log(`[${new Date().toLocaleTimeString()}] Iniciando limpieza de sesiones...`);
 
     try {
-        const snapshot = await rtdb.ref('orders')
-            .orderByChild('status')
-            .equalTo('checkout_session')
-            .once('value');
-
+        const snapshot = await rtdb.ref('orders').once('value');
         const orders = snapshot.val();
+
         if (!orders) {
-            console.log('No hay sesiones de pago pendientes para limpiar.');
+            console.log('No hay pedidos para limpiar.');
             return;
         }
 
@@ -174,17 +173,24 @@ setInterval(async () => {
 
         for (const orderId of keys) {
             const order = orders[orderId];
-            // Solo borrar si el timestamp es menor a hace 30 minutos
-            if (order.timestamp && order.timestamp < thirtyMinutesAgo) {
+
+            // Check if it's a card order that hasn't been paid
+            // We explicitly check for 'card' method to avoid deleting cash/whatsapp pending orders
+            const isAbandonedCardOrder =
+                (order.paymentMethod === 'card') &&
+                (order.status === 'checkout_session' || order.status === 'pending');
+
+            // Only delete if it matches the abandoned card criteria and is older than 30 mins
+            if (isAbandonedCardOrder && order.timestamp && order.timestamp < thirtyMinutesAgo) {
                 await rtdb.ref(`orders/${orderId}`).remove();
                 deletedCount++;
             }
         }
 
         if (deletedCount > 0) {
-            console.log(`Limpieza completada: ${deletedCount} sesiones expiradas eliminadas.`);
+            console.log(`Limpieza completada: ${deletedCount} pedidos (checkout_session/pending) expirados eliminados.`);
         } else {
-            console.log('No se encontraron sesiones expiradas para eliminar.');
+            console.log('No se encontraron pedidos expirados para eliminar.');
         }
     } catch (error) {
         console.error('Error en tarea de limpieza:', error);

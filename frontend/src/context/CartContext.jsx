@@ -16,6 +16,13 @@ export const CartProvider = ({ children }) => {
         localStorage.setItem('cart', JSON.stringify(cart));
     }, [cart]);
 
+    const [cartCount, setCartCount] = useState(0);
+    const [cartAnimation, setCartAnimation] = useState(false);
+
+    useEffect(() => {
+        setCartCount(cart.reduce((count, item) => count + item.quantity, 0));
+    }, [cart]);
+
     const addToCart = (product) => {
         let isNew = false;
         setCart(prev => {
@@ -31,6 +38,10 @@ export const CartProvider = ({ children }) => {
             isNew = true;
             return [...prev, { ...product, quantity: 1 }];
         });
+
+        // Activar animación
+        setCartAnimation(true);
+        setTimeout(() => setCartAnimation(false), 500);
 
         if (isNew) {
             toast.success(`${product.name} agregado al carrito`);
@@ -65,7 +76,6 @@ export const CartProvider = ({ children }) => {
             : item.price;
         return total + (price * item.quantity);
     }, 0);
-    const cartCount = cart.reduce((count, item) => count + item.quantity, 0);
 
     return (
         <CartContext.Provider value={{
@@ -75,7 +85,8 @@ export const CartProvider = ({ children }) => {
             updateQuantity,
             clearCart,
             cartTotal,
-            cartCount
+            cartCount,
+            cartAnimation
         }}>
             {children}
         </CartContext.Provider>

@@ -42,7 +42,7 @@ const Services = ({ onCategoryClick }) => {
         <section className="py-16 bg-gray-50/50 overflow-hidden">
             <div className="text-center mb-12 relative">
                 <h2 className="text-4xl font-secondary font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600 drop-shadow-sm inline-block">
-                    Explora Categorías
+                    Explora Materiales
                 </h2>
                 <p className="text-gray-500 mt-2">Encuentra los materiales perfectos para tus proyectos</p>
             </div>
@@ -74,6 +74,7 @@ const Services = ({ onCategoryClick }) => {
                     ))}
                 </div>
             </div>
+
         </section>
     );
 };

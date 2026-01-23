@@ -22,28 +22,48 @@
     transition: all 0.3s ease;
 }
 
-.logo h1 {
-    font-family: var(--font-secondary);
-    position: relative;
-    display: flex;
-    gap: 6px;
-    font-size: 1.5rem;
+@keyframes logo-pop {
+    0% {
+        transform: scale(1);
+    }
+
+    50% {
+        transform: scale(1.05);
+    }
+
+    100% {
+        transform: scale(1);
+    }
 }
 
-.logo h1::after {
-    content: '';
-    position: absolute;
-    bottom: -4px;
-    left: 0;
-    width: 0;
-    height: 3px;
-    background: linear-gradient(90deg, #667eea, #f093fb);
-    transition: width 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-    border-radius: 99px;
+.animate-logo-pop {
+    animation: logo-pop 3s ease-in-out infinite;
 }
 
-.logo:hover h1::after {
-    width: 100%;
+.animate-logo-pop-delay {
+    animation: logo-pop 3.5s ease-in-out infinite;
+}
+
+.logo-text {
+    font-family: 'Fredoka One', cursive !important;
+    letter-spacing: -0.02em;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.05));
+    line-height: 0.9 !important;
+}
+
+.shadow-glow-sm {
+    box-shadow: 0 0 10px rgba(63, 81, 181, 0.3);
+}
+
+.logo:hover .logo-text {
+    transform: translateY(-2px);
+    transition: transform 0.3s ease;
+}
+
+@media (max-width: 380px) {
+    .logo-text {
+        font-size: 1.1rem !important;
+    }
 }
 
 .header-search {

@@ -6,7 +6,7 @@ import { Link } from 'react-router-dom';
 import './Header.css';
 
 const Header = ({ onOpenSidebar, onOpenLogin, onOpenCart, onOpenOrders }) => {
-    const { cartCount } = useCart();
+    const { cartCount, cartAnimation } = useCart();
     const { user, logout } = useAuth();
     const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
 
@@ -23,10 +23,10 @@ const Header = ({ onOpenSidebar, onOpenLogin, onOpenCart, onOpenOrders }) => {
                 <button onClick={onOpenSidebar} className="lg:hidden p-2 hover:bg-white/50 rounded-full">
                     <Menu className="w-6 h-6 text-gray-700" />
                 </button>
-                <Link to="/" className="group relative cursor-pointer no-underline flex flex-col leading-tight">
-                    <span className="text-primary-blue font-bold text-sm sm:text-2xl logo-text group-hover:drop-shadow-lg transition-all">Papelería</span>
-                    <span className="text-primary-red font-bold text-sm sm:text-2xl logo-text group-hover:drop-shadow-lg transition-all">1x1 y más</span>
-                    <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-primary-blue to-primary-red transition-all duration-300 group-hover:w-full rounded-full"></span>
+                <Link to="/" className="group relative cursor-pointer no-underline flex flex-col leading-tight pt-1">
+                    <span className="text-primary-blue font-bold text-base sm:text-4xl logo-text group-hover:drop-shadow-lg transition-all animate-logo-pop">Papelería</span>
+                    <span className="text-primary-red font-bold text-base sm:text-4xl logo-text group-hover:drop-shadow-lg transition-all animate-logo-pop-delay">1x1 y más</span>
+                    <span className="absolute -bottom-1 left-0 w-0 h-1 bg-gradient-to-r from-primary-blue to-primary-red transition-all duration-300 group-hover:w-full rounded-full shadow-glow-sm"></span>
                 </Link>
             </div>
 
@@ -43,10 +43,13 @@ const Header = ({ onOpenSidebar, onOpenLogin, onOpenCart, onOpenOrders }) => {
             {/* 3. Actions */}
             <div className="flex items-center gap-1.5 md:gap-4">
                 {/* Cart */}
-                <button onClick={onOpenCart} className="relative p-3 rounded-full hover:bg-white/60 transition-colors group">
-                    <ShoppingCart className="w-6 h-6 text-gray-700 group-hover:text-pink-600 transition-colors" />
+                <button
+                    onClick={onOpenCart}
+                    className={`relative p-3 rounded-full hover:bg-white/60 transition-all group ${cartAnimation ? 'scale-125' : 'scale-100'}`}
+                >
+                    <ShoppingCart className={`w-6 h-6 text-gray-700 transition-colors ${cartAnimation ? 'text-primary-red' : 'group-hover:text-primary-blue'}`} />
                     {cartCount > 0 && (
-                        <span className="absolute top-1 right-1 w-5 h-5 flex items-center justify-center bg-red-500 text-white text-xs font-bold rounded-full border-2 border-white shadow-md animate-bounce">
+                        <span className={`absolute top-1 right-1 w-5 h-5 flex items-center justify-center bg-primary-red text-white text-[10px] font-bold rounded-full border-2 border-white shadow-md transition-all ${cartAnimation ? 'animate-bounce scale-110' : ''}`}>
                             {cartCount}
                         </span>
                     )}
@@ -99,6 +102,8 @@ const Header = ({ onOpenSidebar, onOpenLogin, onOpenCart, onOpenOrders }) => {
                     </button>
                 )}
             </div>
+            {/* Rainbow Bottom Border */}
+            <div className="absolute bottom-0 left-0 w-full h-[3px] bg-gradient-to-r from-red-500 via-yellow-400 via-green-500 via-blue-500 to-blue-600 animate-gradient-x"></div>
         </header>
     );
 };

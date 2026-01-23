@@ -38,15 +38,15 @@ const ProductDetailModal = ({ product, isOpen, onClose }) => {
     };
 
     return (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[2000] flex items-center justify-center p-3 sm:p-4">
             {/* Backdrop */}
             <div
-                className="absolute inset-0 bg-gray-900/40 backdrop-blur-md transition-opacity"
+                className="absolute inset-0 bg-gray-900/60 backdrop-blur-md transition-opacity"
                 onClick={onClose}
             />
 
             {/* Modal Container */}
-            <div className="relative bg-white/90 glass-panel w-full max-w-5xl rounded-3xl shadow-2xl overflow-hidden flex flex-col md:flex-row max-h-[90vh] md:max-h-none animate-in fade-in zoom-in-95 duration-200">
+            <div className="relative bg-white glass-panel w-full max-w-5xl rounded-3xl shadow-2xl overflow-hidden flex flex-col md:flex-row max-h-[92vh] sm:max-h-[90vh] animate-in zoom-in-95 duration-300">
 
                 {/* Close Button */}
                 <button
@@ -82,7 +82,7 @@ const ProductDetailModal = ({ product, isOpen, onClose }) => {
                 </div>
 
                 {/* Right: Info */}
-                <div className="w-full md:w-1/2 p-8 flex flex-col overflow-y-auto">
+                <div className="w-full md:w-1/2 p-6 sm:p-8 pb-10 sm:pb-8 flex flex-col overflow-y-auto">
                     {/* Breadcrumbs */}
                     <div className="flex items-center gap-2 text-sm text-gray-500 mb-4">
                         <span>Inicio</span>

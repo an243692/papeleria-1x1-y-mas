@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import './BottomNav.css';
 
 const BottomNav = ({ onOpenSidebar, onOpenLogin, onOpenCart, onOpenOrders }) => {
-    const { cartCount } = useCart();
+    const { cartCount, cartAnimation } = useCart();
     const { user } = useAuth();
 
     const handleAccountClick = () => {
@@ -27,15 +27,15 @@ const BottomNav = ({ onOpenSidebar, onOpenLogin, onOpenCart, onOpenOrders }) => 
                 <span>Categorías</span>
             </button>
             <button className="nav-item" onClick={onOpenCart}>
-                <div className="relative">
-                    <ShoppingCart className="w-6 h-6" />
+                <div className={`relative transition-all duration-300 ${cartAnimation ? 'scale-150' : 'scale-100'}`}>
+                    <ShoppingCart className={`w-6 h-6 transition-colors ${cartAnimation ? 'text-primary-red' : ''}`} />
                     {cartCount > 0 && (
-                        <span className="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] font-bold w-4 h-4 flex items-center justify-center rounded-full">
+                        <span className={`absolute -top-2 -right-2 bg-primary-red text-white text-[10px] font-bold w-4 h-4 flex items-center justify-center rounded-full border border-white shadow-sm ${cartAnimation ? 'animate-bounce' : ''}`}>
                             {cartCount}
                         </span>
                     )}
                 </div>
-                <span>Carrito</span>
+                <span className={cartAnimation ? 'text-primary-red font-bold' : ''}>Carrito</span>
             </button>
             <button className="nav-item" onClick={handleAccountClick}>
                 <User className="w-6 h-6" />

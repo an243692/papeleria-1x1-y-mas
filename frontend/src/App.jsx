@@ -10,7 +10,6 @@ import { CartProvider, useCart } from './context/CartContext';
 
 // Components
 import Header from './components/Header';
-import FilterSidebar from './components/FilterSidebar';
 import ProductCard from './components/ProductCard';
 import ProductDetailModal from './components/ProductDetailModal';
 import LoginModal from './components/LoginModal';
@@ -18,11 +17,17 @@ import RegisterModal from './components/RegisterModal';
 import CartModal from './components/CartModal';
 import Hero from './components/Hero';
 import Services from './components/Services';
+import PromotionsSection from './components/PromotionsSection';
+import BrandsCarousel from './components/BrandsCarousel';
 import Footer from './components/Footer';
 import WhatsAppButton from './components/WhatsAppButton';
+import TikTokButton from './components/TikTokButton';
 import Success from './pages/Success';
 import BottomNav from './components/BottomNav';
 import MyOrdersModal from './components/MyOrdersModal';
+import ProductSkeleton from './components/ProductSkeleton';
+import MobileSearchBar from './components/MobileSearchBar';
+import FilterSidebar from './components/FilterSidebar';
 
 const BACKEND_URL = 'https://papeleria-1x1-y-mas.onrender.com';
 
@@ -93,15 +98,13 @@ function App() {
               onOpenOrders={() => setIsOrdersOpen(true)}
             />
 
-            <FilterSidebar
-              isOpen={isSidebarOpen}
-              onClose={() => setIsSidebarOpen(false)}
-              filters={filters}
-              setFilters={setFilters}
-              categories={categories}
-            />
+
 
             <main className="flex-grow">
+              <MobileSearchBar onSearch={(term) => {
+                // Implement global search if needed, or just scroll to catalog
+                document.getElementById('catalog')?.scrollIntoView({ behavior: 'smooth' });
+              }} />
               <Routes>
                 <Route path="/" element={
                   <>
@@ -110,6 +113,10 @@ function App() {
                       setFilters({ ...filters, categories: [category] });
                       document.getElementById('catalog')?.scrollIntoView({ behavior: 'smooth' });
                     }} />
+
+                    <PromotionsSection />
+
+                    <BrandsCarousel />
 
                     {/* Catalog Section */}
                     <section id="catalog" className="container mx-auto px-4 sm:px-6 py-12">
@@ -121,8 +128,10 @@ function App() {
                       </div>
 
                       {loading ? (
-                        <div className="flex items-center justify-center min-h-[400px]">
-                          <div className="animate-spin rounded-full h-12 w-12 border-4 border-purple-200 border-t-purple-600"></div>
+                        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
+                          {[...Array(8)].map((_, i) => (
+                            <ProductSkeleton key={i} />
+                          ))}
                         </div>
                       ) : filteredProducts.length === 0 ? (
                         <div className="text-center py-12">
@@ -175,6 +184,13 @@ function App() {
             <WhatsAppButton />
 
             {/* Modals */}
+            <FilterSidebar
+              isOpen={isSidebarOpen}
+              onClose={() => setIsSidebarOpen(false)}
+              filters={filters}
+              setFilters={setFilters}
+              categories={categories}
+            />
             <ProductDetailModal
               product={selectedProduct}
               isOpen={!!selectedProduct}
