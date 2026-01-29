@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import ProductCard from './ProductCard';
+import { useCart } from '../context/CartContext';
 
 /**
  * ✅ OPTIMIZACIÓN: Lazy Loading de Productos
@@ -14,6 +15,7 @@ import ProductCard from './ProductCard';
  */
 
 const CategoryProductsGrid = ({ category, products, onOpenDetail }) => {
+    const { addToCart } = useCart();
     const INITIAL_PRODUCTS = 4; // Mostrar solo 4 productos inicialmente
     const [showAll, setShowAll] = useState(false);
 
@@ -41,6 +43,7 @@ const CategoryProductsGrid = ({ category, products, onOpenDetail }) => {
                         key={product.id}
                         product={product}
                         onOpenDetail={() => onOpenDetail(product)}
+                        onAddToCart={addToCart}
                     />
                 ))}
             </div>

@@ -8,32 +8,46 @@ const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 // Inicializar Firebase Admin
 // SE ESPERA QUE LA VARIABLE DE ENTORNO FIREBASE_CREDENTIALS APUNTE AL ARCHIVO JSON
 // O QUE EL USUARIO COLOQUE 'serviceAccountKey.json' EN LA RAIZ DEL BACKEND
-// Inicializar Firebase Admin
+// Inicializar Firebase Admin (Con Fail-Safe para pruebas locales)
+let db, rtdb;
 try {
     let serviceAccount;
+    // ... (Lógica de carga de credenciales existente) ...
     if (process.env.FIREBASE_CREDENTIALS) {
         try {
-            // Intenta parsear si es un string JSON directamente
             serviceAccount = JSON.parse(process.env.FIREBASE_CREDENTIALS);
         } catch (e) {
-            // Si no es JSON, asume que es una ruta de archivo
             serviceAccount = require(process.env.FIREBASE_CREDENTIALS);
         }
     } else {
-        serviceAccount = require('./serviceAccountKey.json');
+        // Intento silencioso de cargar local
+        try {
+            serviceAccount = require('./serviceAccountKey.json');
+        } catch (e) { throw new Error("No serviceAccountKey.json found"); }
     }
 
-    admin.initializeApp({
-        credential: admin.credential.cert(serviceAccount),
-        databaseURL: "https://papeleria-1x1-y-mas-default-rtdb.firebaseio.com"
-    });
+    if (!admin.apps.length) {
+        admin.initializeApp({
+            credential: admin.credential.cert(serviceAccount),
+            databaseURL: "https://papeleria-1x1-y-mas-default-rtdb.firebaseio.com"
+        });
+    }
+
+    db = admin.firestore();
+    rtdb = admin.database();
+    console.log("✅ Firebase Admin inicializado correctamente.");
+
 } catch (error) {
-    console.warn("Advertencia: No se pudo inicializar Firebase Admin automáticamente.");
-    console.error(error);
+    console.warn("⚠️ ADVERTENCIA: No se pudo conectar a Firebase (¿Faltan credenciales?).");
+    console.warn("   -> El servidor iniciará en MODO LIMITADO (Solo endpoints que no usen DB).");
+
+    // Mocks para que no crashee al llamar a db/rtdb
+    const mockDb = { ref: () => ({ set: async () => { }, update: async () => { }, remove: async () => { }, once: async () => ({ val: () => null }), orderByChild: () => ({ startAt: () => ({ once: async () => ({ val: () => null }) }) }) }) };
+    db = mockDb; // Firestore mock simplificado si fuera necesario
+    rtdb = mockDb;
 }
 
-const db = admin.firestore();
-const rtdb = admin.database();
+// Variables db/rtdb ya inicializadas arriba
 
 const app = express();
 
