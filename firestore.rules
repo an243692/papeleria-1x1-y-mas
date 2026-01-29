@@ -1,0 +1,37 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ✅ TEMPORALMENTE ABIERTO - Permitir todo para admin
+    // TODO: Implementar autenticación de admin
+    
+    // Productos: Lectura pública, escritura abierta (para admin)
+    match /products/{productId} {
+      allow read: if true;
+      allow write: if true; // Temporalmente abierto para admin
+    }
+    
+    // Carrusel Hero: Lectura pública, escritura abierta (para admin)
+    match /hero_carousel/{imageId} {
+      allow read: if true;
+      allow write: if true; // Temporalmente abierto para admin
+    }
+    
+    // Promociones: Lectura pública, escritura abierta (para admin)
+    match /promotions/{promoId} {
+      allow read: if true;
+      allow write: if true; // Temporalmente abierto para admin
+    }
+    
+    // Reels: Lectura pública, escritura abierta (para admin)
+    match /reels/{reelId} {
+      allow read: if true;
+      allow write: if true; // Temporalmente abierto para admin
+    }
+    
+    // Permitir todo lo demás temporalmente
+    match /{document=**} {
+      allow read, write: if true;
+    }
+  }
+}

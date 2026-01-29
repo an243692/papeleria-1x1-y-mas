@@ -1,0 +1,14 @@
+{
+    "rules": {
+        ".read": true,
+        ".write": true,
+        "orders": {
+            ".indexOn": [
+                "userId",
+                "timestamp",
+                "status",
+                "paymentMethod"
+            ]
+        }
+    }
+}

@@ -8,14 +8,14 @@ export default {
         extend: {
             colors: {
                 // Colores basados en el logo de Papelería 1x1 y Más
-                'primary-blue': '#3f51b5',      // Azul del círculo
+                'primary-blue': '#1034a6',      // Deep Corporate Blue (Core Brand Color)
                 'primary-red': '#e91e63',        // Rojo del texto 1X1
                 'primary-sky': '#03a9f4',        // Azul cielo de la hoja
                 'primary-yellow': '#ffc107',     // Amarillo dorado
                 'primary-green': '#8bc34a',      // Verde oliva
                 'primary-purple': '#9c27b0',     // Morado
                 'primary-pink': '#e91e63',       // Rosa/Magenta
-                'dark-blue': '#2c3e50',
+                'dark-blue': '#0f172a',
                 'green-whatsapp': '#25D366',
             },
             fontFamily: {
@@ -27,6 +27,9 @@ export default {
                 'float': 'float 3s ease-in-out infinite',
                 'wiggle': 'wiggle 1s ease-in-out infinite',
                 'gradient-x': 'gradient-x 3s ease infinite',
+                'scroll-slow': 'scroll 25s linear infinite',
+                'scroll-slow-delayed': 'scroll-delayed 25s linear infinite',
+                'fade-in-up': 'fade-in-up 0.8s ease-out forwards',
             },
             keyframes: {
                 'pulse-slow': {
@@ -51,6 +54,18 @@ export default {
                         'background-position': 'right center'
                     },
                 },
+                'scroll': {
+                    '0%': { transform: 'translateX(0)' },
+                    '100%': { transform: 'translateX(-100%)' },
+                },
+                'scroll-delayed': {
+                    '0%': { transform: 'translateX(100%)' },
+                    '100%': { transform: 'translateX(0)' },
+                },
+                'fade-in-up': {
+                    '0%': { opacity: '0', transform: 'translateY(20px)' },
+                    '100%': { opacity: '1', transform: 'translateY(0)' },
+                }
             }
         },
     },

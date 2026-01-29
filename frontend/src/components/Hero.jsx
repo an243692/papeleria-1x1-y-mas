@@ -209,25 +209,25 @@ const Hero = () => {
                     animation-play-state: paused;
                 }
 
-                @keyframes scroll-desktop {
-                    0% { transform: translateX(0); }
-                    100% { transform: translateX(-${products.length * 170}px); }
-                }
-
-                @media (max-width: 768px) {
-                    .product-item-clean {
-                        width: 110px;
-                        height: 110px;
-                    }
-                    .products-carousel {
-                        gap: 20px;
-                        animation-duration: 25s;
-                    }
                     @keyframes scroll-desktop {
-                        0% { transform: translateX(0); }
-                        100% { transform: translateX(-${products.length * 130}px); }
+                        0% { transform: translateX(-${products.length * 170}px); }
+                        100% { transform: translateX(0); }
                     }
-                }
+
+                    @media (max-width: 768px) {
+                        .product-item-clean {
+                            width: 110px;
+                            height: 110px;
+                        }
+                        .products-carousel {
+                            gap: 20px;
+                            animation-duration: 25s;
+                        }
+                        @keyframes scroll-desktop {
+                            0% { transform: translateX(-${products.length * 130}px); }
+                            100% { transform: translateX(0); }
+                        }
+                    }
             `}</style>
 
         </section>

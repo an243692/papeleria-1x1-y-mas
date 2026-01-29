@@ -6,17 +6,12 @@ const admin = require('firebase-admin');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
 // Inicializar Firebase Admin
-// SE ESPERA QUE LA VARIABLE DE ENTORNO FIREBASE_CREDENTIALS APUNTE AL ARCHIVO JSON
-// O QUE EL USUARIO COLOQUE 'serviceAccountKey.json' EN LA RAIZ DEL BACKEND
-// Inicializar Firebase Admin
 try {
     let serviceAccount;
     if (process.env.FIREBASE_CREDENTIALS) {
         try {
-            // Intenta parsear si es un string JSON directamente
             serviceAccount = JSON.parse(process.env.FIREBASE_CREDENTIALS);
         } catch (e) {
-            // Si no es JSON, asume que es una ruta de archivo
             serviceAccount = require(process.env.FIREBASE_CREDENTIALS);
         }
     } else {
@@ -77,8 +72,7 @@ app.post('/stripe/webhook', express.raw({ type: 'application/json' }), async (re
 
 // Middleware standard
 app.use(helmet());
-app.use(cors({ origin: true })); // Permitir todas las conexiones por ahora (dev)
-// Aumentar el límite a 50mb para evitar errores 413 (Payload Too Large)
+app.use(cors({ origin: true }));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
@@ -87,121 +81,11 @@ app.get('/', (req, res) => {
     res.json({ message: "Servidor 1x1 y más - Activo" });
 });
 
-app.post('/calculate-shipping', async (req, res) => {
-    const { zipCode, total } = req.body;
-
-    // 1. SI TENEMOS API KEY DE SKYDROPX, USARLA REAL
-    if (process.env.SKYDROPX_API_KEY) {
-        try {
-            console.log(`cotizando en Skydropx para CP: ${zipCode}`);
-            const response = await fetch('https://api.skydropx.com/v1/quotations', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Token token=${process.env.SKYDROPX_API_KEY}`
-                },
-                body: JSON.stringify({
-                    zip_to: zipCode,
-                    zip_from: "06500", // TU CP DE ORIGEN (AJUSTAR SI ES OTRO)
-                    parcel: {
-                        weight: 1, // Peso promedio 1kg (puedes calcularlo real sumando items)
-                        height: 10,
-                        width: 10,
-                        length: 10
-                    }
-                })
-            });
-
-            const data = await response.json();
-
-            // Transformar respuesta de Skydropx a nuestro formato
-            let realOptions = data.map(quote => ({
-                id: quote.id,
-                name: `${quote.provider} ${quote.service_level_name}`,
-                price: parseFloat(quote.amount_local),
-                days: `${quote.days} días`
-            })).slice(0, 3); // Tomar solo las 3 mejores opciones
-
-            // Aplicar regla de Envío Gratis si aplica
-            if (parseFloat(total) >= 1500) {
-                realOptions = [{
-                    id: 'free_promo',
-                    name: 'Envío GRATIS (Promoción)',
-                    price: 0,
-                    days: '3-5 días hábiles'
-                }, ...realOptions];
-            }
-
-            return res.json({ options: realOptions });
-
-        } catch (error) {
-            console.error("Error Skydropx:", error);
-            // Si falla, usar simulación (fallback)
-        }
-    }
-
-    // 2. FALLBACK/SIMULACIÓN (Si no hay API Key o falló la red)
-    let shippingOptions = [];
-    const orderTotal = parseFloat(total) || 0;
-
-    // Lógica 1: Envío Gratis si compra > $1500
-    if (orderTotal >= 1500) {
-        shippingOptions.push({
-            id: 'free_shipping',
-            name: 'Envío GRATIS (Promoción)',
-            price: 0,
-            days: '3-5 días hábiles'
-        });
-
-        shippingOptions.push({
-            id: 'express_discounted',
-            name: 'Express Prioritario',
-            price: 99,
-            days: '1-2 días hábiles'
-        });
-    } else {
-        const isCDMX = zipCode && (zipCode.startsWith('0') || zipCode.startsWith('1'));
-
-        if (isCDMX) {
-            shippingOptions.push({
-                id: 'local_standard',
-                name: 'Envío Local CDMX (Estándar)',
-                price: 89,
-                days: '2-3 días hábiles'
-            });
-            shippingOptions.push({
-                id: 'local_express',
-                name: 'Entrega Express CDMX',
-                price: 149,
-                days: '24 horas'
-            });
-        } else {
-            shippingOptions.push({
-                id: 'national_standard',
-                name: 'Envío Nacional Estándar',
-                price: 180,
-                days: '3-5 días hábiles'
-            });
-            shippingOptions.push({
-                id: 'national_express',
-                name: 'FedEx/DHL Express',
-                price: 350,
-                days: '1-2 días hábiles'
-            });
-        }
-    }
-
-    setTimeout(() => {
-        res.json({ options: shippingOptions });
-    }, 500);
-});
-
 app.post('/create-checkout-session', async (req, res) => {
     try {
         const { items, orderId, orderMetadata, isCash } = req.body;
         console.log(`Recibida solicitud de ${isCash ? 'EFECTIVO' : 'TARJETA'} para orden:`, orderId);
 
-        // Save status accordingly
         const initialStatus = isCash ? 'pending' : 'checkout_session';
 
         try {
@@ -214,7 +98,6 @@ app.post('/create-checkout-session', async (req, res) => {
             console.error("Error saving order to RTDB:", dbError);
         }
 
-        // If it's cash, we don't need Stripe
         if (isCash) {
             return res.json({ success: true, message: 'Orden en efectivo registrada' });
         }
@@ -265,6 +148,7 @@ app.post('/create-checkout-session', async (req, res) => {
 // ANTES: 288 ejecuciones/día × 1,000 lecturas = 288,000 lecturas/día
 // DESPUÉS: 48 ejecuciones/día × 100 lecturas = 4,800 lecturas/día
 // AHORRO: 98% de reducción en lecturas
+
 const CLEANUP_INTERVAL = 30 * 60 * 1000; // ✅ 30 minutos (antes: 5 minutos)
 const EXPIRATION_TIME = 30 * 60 * 1000; // 30 minutos
 
@@ -309,9 +193,9 @@ async function cleanupAbandonedOrders() {
         }
 
         if (deletedCount > 0) {
-            console.log(`✓ Limpieza completada: ${deletedCount} pedido(s) eliminado(s).`);
+            console.log(`✓ Limpieza completada: ${deletedCount} pedido(s) abandonado(s) eliminado(s).`);
         } else {
-            console.log('✓ No se encontraron pedidos abandonados.');
+            console.log('✓ No se encontraron pedidos abandonados para eliminar.');
         }
     } catch (error) {
         console.error('❌ Error en tarea de limpieza:', error);
@@ -320,8 +204,9 @@ async function cleanupAbandonedOrders() {
 
 // Ejecutar limpieza inmediatamente al iniciar el servidor
 console.log('🚀 Iniciando sistema de limpieza automática de pedidos abandonados...');
-console.log(`⏱️  Frecuencia optimizada: cada ${CLEANUP_INTERVAL / 60000} minutos`);
+console.log(`⏱️  Frecuencia: cada ${CLEANUP_INTERVAL / 60000} minutos`);
 console.log(`⏱️  Expiración: ${EXPIRATION_TIME / 60000} minutos`);
+
 setTimeout(cleanupAbandonedOrders, 10000); // Primera limpieza después de 10 segundos
 
 // ✅ Ejecutar limpieza cada 30 minutos (antes: cada 5 minutos)

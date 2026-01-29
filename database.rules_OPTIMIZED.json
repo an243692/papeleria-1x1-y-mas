@@ -1,0 +1,32 @@
+{
+    "rules": {
+        ".read": false,
+        ".write": false,
+        "orders": {
+            ".indexOn": [
+                "userId",
+                "timestamp",
+                "status",
+                "paymentMethod"
+            ],
+            "$orderId": {
+                ".read": "auth != null && (data.child('userId').val() === auth.uid || root.child('users').child(auth.uid).child('role').val() === 'admin')",
+                ".write": "auth != null"
+            }
+        },
+        "users": {
+            ".indexOn": [
+                "email",
+                "createdAt"
+            ],
+            "$userId": {
+                ".read": "auth != null && ($userId === auth.uid || root.child('users').child(auth.uid).child('role').val() === 'admin')",
+                ".write": "auth != null && $userId === auth.uid"
+            }
+        },
+        "stats": {
+            ".read": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'admin'",
+            ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'admin'"
+        }
+    }
+}

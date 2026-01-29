@@ -8,10 +8,14 @@ const BACKEND_URL = 'https://papeleria-1x1-y-mas.onrender.com';
 
 const CartModal = ({ isOpen, onClose }) => {
     const { cart, removeFromCart, updateQuantity, cartTotal } = useCart();
-    const { userProfile } = useAuth();
+    const { userProfile, user } = useAuth();
     const [deliveryMethod, setDeliveryMethod] = React.useState('delivery'); // 'delivery' or 'store'
     const [paymentMethod, setPaymentMethod] = React.useState('card'); // 'card' or 'cash'
     const [isLoading, setIsLoading] = React.useState(false);
+
+    const [shippingOptions, setShippingOptions] = React.useState([]);
+    const [selectedShipping, setSelectedShipping] = React.useState(null);
+    const [isCalculatingShipping, setIsCalculatingShipping] = React.useState(false);
 
     // Shipping Address State
     const [shippingAddress, setShippingAddress] = React.useState({
@@ -28,6 +32,55 @@ const CartModal = ({ isOpen, onClose }) => {
         setShippingAddress(prev => ({ ...prev, [name]: value }));
     };
 
+    // Calculate Shipping Effect
+    React.useEffect(() => {
+        const fetchShippingRates = async () => {
+            if (deliveryMethod !== 'delivery' || !shippingAddress.zipCode || shippingAddress.zipCode.length < 5) return;
+
+            setIsCalculatingShipping(true);
+            try {
+                const response = await fetch(`${BACKEND_URL}/calculate-shipping`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        zipCode: shippingAddress.zipCode,
+                        total: cartTotal
+                    })
+                });
+
+                const data = await response.json();
+                if (data.options && data.options.length > 0) {
+                    setShippingOptions(data.options);
+                    // Select the first option by default (usually the cheapest or recommended)
+                    setSelectedShipping(data.options[0]);
+                } else {
+                    setShippingOptions([]);
+                    setSelectedShipping(null);
+                }
+            } catch (error) {
+                console.error("Error fetching shipping rates:", error);
+                toast.error("No se pudieron calcular las tarifas de envío");
+            } finally {
+                setIsCalculatingShipping(false);
+            }
+        };
+
+        // Debounce simple para esperar a que termine de escribir el CP
+        const timeoutId = setTimeout(() => {
+            fetchShippingRates();
+        }, 800);
+
+        return () => clearTimeout(timeoutId);
+    }, [shippingAddress.zipCode, deliveryMethod, cartTotal]);
+
+    // Reset shipping when delivery method changes
+    React.useEffect(() => {
+        if (deliveryMethod === 'store') {
+            setShippingOptions([]);
+            setSelectedShipping(null);
+        }
+    }, [deliveryMethod]);
+
     // Warm up the server when the cart is opened to avoid Render's cold start delay
     React.useEffect(() => {
         if (isOpen) {
@@ -42,11 +95,17 @@ const CartModal = ({ isOpen, onClose }) => {
         }
     }, [deliveryMethod]);
 
+    const finalTotal = cartTotal + (selectedShipping ? selectedShipping.price : 0);
+
     const handleCheckout = async () => {
         // Validation for delivery address
         if (deliveryMethod === 'delivery') {
             if (!shippingAddress.street || !shippingAddress.zipCode || !shippingAddress.neighborhood || !shippingAddress.city) {
                 toast.error('Por favor completa la dirección de envío (Calle, Colonia, Código Postal y Ciudad son obligatorios).');
+                return;
+            }
+            if (!selectedShipping) {
+                toast.error('Por favor selecciona una opción de envío.');
                 return;
             }
         }
@@ -73,28 +132,54 @@ const CartModal = ({ isOpen, onClose }) => {
                     price: unitPrice,
                     quantity: item.quantity,
                     totalPrice: unitPrice * item.quantity,
-                    // Solo enviar la imagen si es una URL razonable
                     imageUrl: cleanImageUrl
                 };
             });
 
+            // Add shipping as an item if applicable
+            if (selectedShipping && deliveryMethod === 'delivery') {
+                orderItems.push({
+                    id: 'shipping_cost',
+                    name: `Envío: ${selectedShipping.name}`,
+                    unitPrice: selectedShipping.price,
+                    price: selectedShipping.price,
+                    quantity: 1,
+                    totalPrice: selectedShipping.price,
+                    imageUrl: '' // No image for shipping
+                });
+            }
+
             const orderData = {
                 id: orderId,
                 items: orderItems,
-                total: cartTotal,
+                total: finalTotal,
+                subtotal: cartTotal,
+                shippingCost: selectedShipping ? selectedShipping.price : 0,
+                shippingOption: selectedShipping,
                 status: paymentMethod === 'card' ? 'checkout_session' : 'pending',
                 deliveryMethod,
                 paymentMethod,
                 shippingAddress: deliveryMethod === 'delivery' ? shippingAddress : null,
                 timestamp: Date.now(),
-                userId: userProfile?.uid || 'guest',
-                userInfo: userProfile ? {
-                    fullName: userProfile.fullName,
-                    email: userProfile.email,
-                    phone: userProfile.phone || '',
-                    address: userProfile.address || ''
-                } : null
+                // Asegurar que SIEMPRE se capture el userId si hay usuario autenticado
+                userId: userProfile?.uid || user?.uid || 'guest',
+                // Construir userInfo de forma robusta con múltiples fallbacks
+                userInfo: {
+                    fullName: userProfile?.fullName || user?.displayName || 'Usuario',
+                    email: userProfile?.email || user?.email || '',
+                    phone: userProfile?.phone || '',
+                    address: userProfile?.address || ''
+                }
             };
+
+            // Debug: Verificar que la información del usuario se está capturando correctamente
+            console.log('📦 Datos del pedido:', {
+                userId: orderData.userId,
+                userInfo: orderData.userInfo,
+                userProfile: userProfile,
+                user: user ? { uid: user.uid, email: user.email, displayName: user.displayName } : null
+            });
+
 
             const response = await fetch(`${BACKEND_URL}/create-checkout-session`, {
                 method: 'POST',
@@ -130,18 +215,24 @@ const CartModal = ({ isOpen, onClose }) => {
 
                     let message = `*NUEVO PEDIDO - ${orderId}*\n`;
                     message += `--------------------------\n`;
-                    message += `👤 *Cliente:* ${userProfile?.fullName || 'Cliente'}\n`;
+                    message += `👤 *Cliente:* ${userProfile?.fullName || user?.displayName || 'Cliente'}\n`;
                     message += `📞 *Tel:* ${userProfile?.phone || 'No proporcionado'}\n`;
                     message += `🚚 *Entrega:* ${deliveryMethod === 'store' ? 'Recoger en Tienda' : 'Envio a Domicilio'}\n`;
                     message += `💰 *Pago:* Efectivo (Al recibir)\n\n`;
 
                     message += `*PRODUCTOS:*\n`;
                     orderItems.forEach(item => {
+                        // Skip shipping item in product list for clarity (add it at the end maybe?)
+                        if (item.id === 'shipping_cost') return;
                         message += `- ${item.name} (x${item.quantity}) - ${formatCurrency(item.totalPrice)}\n`;
                     });
 
                     message += `\n--------------------------\n`;
-                    message += `*TOTAL A PAGAR: ${formatCurrency(cartTotal)}*\n`;
+                    message += `Subtotal: ${formatCurrency(cartTotal)}\n`;
+                    if (selectedShipping) {
+                        message += `Envío (${selectedShipping.name}): ${formatCurrency(selectedShipping.price)}\n`;
+                    }
+                    message += `*TOTAL A PAGAR: ${formatCurrency(finalTotal)}*\n`;
 
                     if (deliveryMethod === 'delivery' && orderData.shippingAddress) {
                         const addr = orderData.shippingAddress;
@@ -270,7 +361,7 @@ const CartModal = ({ isOpen, onClose }) => {
                                 </div>
                                 {deliveryMethod === 'delivery' && (
                                     <p className="text-[10px] text-blue-600 mt-2 font-medium italic">
-                                        * La tarifa de envío se calculará según la dirección ingresada.
+                                        * La tarifa de envío se calculará según tu Código Postal.
                                     </p>
                                 )}
                             </div>
@@ -319,6 +410,38 @@ const CartModal = ({ isOpen, onClose }) => {
                                             className="w-full px-3 py-2 text-xs rounded-lg border border-blue-100 focus:outline-none focus:ring-1 focus:ring-blue-400"
                                         />
                                     </div>
+
+                                    {/* Shipping Options Display */}
+                                    {isCalculatingShipping && (
+                                        <div className="py-2 text-center">
+                                            <div className="inline-flex items-center gap-2 text-xs text-blue-600 bg-blue-50 px-3 py-1 rounded-full">
+                                                <Loader2 className="w-3 h-3 animate-spin" />
+                                                Cotizando envíos...
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {!isCalculatingShipping && shippingOptions.length > 0 && (
+                                        <div className="space-y-2 mt-2">
+                                            <p className="text-[10px] font-bold text-gray-500 uppercase">Opciones de Envío:</p>
+                                            {shippingOptions.map((option) => (
+                                                <div
+                                                    key={option.id}
+                                                    onClick={() => setSelectedShipping(option)}
+                                                    className={`p-2 rounded-lg border flex items-center justify-between cursor-pointer transition-all ${selectedShipping?.id === option.id ? 'border-blue-500 bg-blue-50 ring-1 ring-blue-500' : 'border-gray-200 hover:border-blue-200'}`}
+                                                >
+                                                    <div className="flex flex-col">
+                                                        <span className="text-xs font-bold text-gray-700">{option.name}</span>
+                                                        <span className="text-[10px] text-gray-500">{option.days}</span>
+                                                    </div>
+                                                    <span className={`text-xs font-bold ${option.price === 0 ? 'text-green-600' : 'text-gray-900'}`}>
+                                                        {option.price === 0 ? 'GRATIS' : `$${option.price.toFixed(2)}`}
+                                                    </span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+
                                     <div className="grid grid-cols-1">
                                         <input
                                             type="text"
@@ -364,12 +487,29 @@ const CartModal = ({ isOpen, onClose }) => {
                         </div>
 
                         <div className="border-t border-dashed pt-4">
-                            <div className="flex justify-between items-center mb-6 px-1">
-                                <span className="text-lg font-bold text-gray-700">Total:</span>
-                                <span className="text-2xl font-black text-primary-blue">
-                                    ${cartTotal.toFixed(2)}
-                                </span>
+                            <div className="space-y-1 mb-4 px-1">
+                                <div className="flex justify-between items-center text-sm text-gray-600">
+                                    <span>Subtotal:</span>
+                                    <span>${cartTotal.toFixed(2)}</span>
+                                </div>
+                                {deliveryMethod === 'delivery' && (
+                                    <div className="flex justify-between items-center text-sm font-medium text-blue-600">
+                                        <span>Envío:</span>
+                                        <span>
+                                            {selectedShipping
+                                                ? (selectedShipping.price === 0 ? 'GRATIS' : `$${selectedShipping.price.toFixed(2)}`)
+                                                : '--'}
+                                        </span>
+                                    </div>
+                                )}
+                                <div className="flex justify-between items-center pt-2 text-lg font-bold text-gray-700">
+                                    <span>Total:</span>
+                                    <span className="text-2xl font-black text-primary-blue">
+                                        ${finalTotal.toFixed(2)}
+                                    </span>
+                                </div>
                             </div>
+
                             <button
                                 onClick={handleCheckout}
                                 disabled={isLoading}

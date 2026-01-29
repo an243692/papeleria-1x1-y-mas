@@ -95,7 +95,7 @@ const Header = ({ onOpenSidebar, onOpenLogin, onOpenCart, onOpenOrders }) => {
                 ) : (
                     <button
                         onClick={onOpenLogin}
-                        className="flex items-center gap-2 px-3 sm:px-6 py-2.5 rounded-full bg-primary-blue hover:bg-blue-700 text-white font-medium shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all text-sm"
+                        className="btn-primary flex items-center gap-2 text-sm shadow-lg hover:shadow-xl"
                     >
                         <User className="w-4 h-4" />
                         <span className="hidden sm:inline">Iniciar Sesión</span>
@@ -103,8 +103,8 @@ const Header = ({ onOpenSidebar, onOpenLogin, onOpenCart, onOpenOrders }) => {
                 )}
             </div>
             {/* Rainbow Bottom Border */}
-            <div className="absolute bottom-0 left-0 w-full h-[3px] bg-gradient-to-r from-red-500 via-yellow-400 via-green-500 via-blue-500 to-blue-600 animate-gradient-x"></div>
-        </header>
+            <div className="absolute bottom-0 left-0 w-full h-[4px] bg-gradient-to-r from-red-500 via-yellow-400 via-green-500 via-blue-500 to-primary-purple animate-gradient-x opacity-90"></div>
+        </header >
     );
 };
 

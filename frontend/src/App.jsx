@@ -28,6 +28,7 @@ import MyOrdersModal from './components/MyOrdersModal';
 import ProductSkeleton from './components/ProductSkeleton';
 import MobileSearchBar from './components/MobileSearchBar';
 import FilterSidebar from './components/FilterSidebar';
+import CategoryProductsGrid from './components/CategoryProductsGrid';
 
 const BACKEND_URL = 'https://papeleria-1x1-y-mas.onrender.com';
 
@@ -46,7 +47,7 @@ function App() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Fetch products
+        // Fetch products directamente desde Firestore
         const productsSnapshot = await getDocs(collection(db, "products"));
         const productsData = productsSnapshot.docs.map(doc => ({
           id: doc.id,
@@ -139,7 +140,7 @@ function App() {
                         </div>
                       ) : (
                         <div className="space-y-12">
-                          {/* Group products by category */}
+                          {/* Lazy Loading: 4 productos iniciales por categoría */}
                           {Object.entries(
                             filteredProducts.reduce((acc, product) => {
                               const category = product.category || 'Otros';
@@ -148,25 +149,12 @@ function App() {
                               return acc;
                             }, {})
                           ).map(([category, items]) => (
-                            <div key={category} className="space-y-6">
-                              {/* Category Header */}
-                              <div className="flex items-center gap-4">
-                                <h3 className="text-2xl font-bold text-primary-red uppercase tracking-wide">
-                                  {category}
-                                </h3>
-                                <div className="h-px flex-gro bg-gray-200"></div>
-                              </div>
-
-                              {/* Products Grid for this category */}
-                              <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
-                                {items.map(product => (
-                                  <ProductContainer
-                                    key={product.id}
-                                    product={product}
-                                    onOpenDetail={setSelectedProduct}
-                                  />
-                                ))}
-                              </div>
+                            <div key={category} id={`category-${category}`}>
+                              <CategoryProductsGrid
+                                category={category}
+                                products={items}
+                                onOpenDetail={setSelectedProduct}
+                              />
                             </div>
                           ))}
                         </div>

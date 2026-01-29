@@ -12,6 +12,7 @@ const BrandsCarousel = () => {
         { name: 'Jumbo', logo: '/brands/jumbo.png' },
         { name: 'Jocar', logo: '/brands/jocar.png' },
         { name: 'Dixon', logo: '/brands/dixon.png' },
+        { name: 'Empaques Parler', logo: '/brands/empaques-parler.png' },
     ];
 
     // Duplicate brands for seamless scrolling
@@ -29,17 +30,17 @@ const BrandsCarousel = () => {
                 <div className="h-1.5 w-24 bg-gradient-to-r from-primary-blue to-primary-red mx-auto rounded-full"></div>
             </div>
 
-            <div className="relative flex overflow-x-hidden group py-2">
+            <div className="relative flex overflow-x-hidden group py-1">
                 <div className="flex animate-scroll-slow whitespace-nowrap">
                     {duplicatedBrands.map((brand, index) => (
                         <div
                             key={index}
-                            className="inline-flex items-center justify-center mx-4 w-40 h-24 bg-white rounded-2xl shadow-sm border border-gray-100 hover:shadow-lg hover:-translate-y-1 transition-all duration-300"
+                            className="inline-flex items-center justify-center mx-3 w-32 h-16 bg-white rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-all duration-300"
                         >
                             <img
                                 src={brand.logo}
                                 alt={brand.name}
-                                className="max-w-[80%] max-h-[70%] object-contain transition-all duration-300"
+                                className="max-w-[85%] max-h-[75%] object-contain"
                                 onError={(e) => {
                                     e.target.src = `https://via.placeholder.com/150x80?text=${brand.name}`;
                                 }}
@@ -48,16 +49,16 @@ const BrandsCarousel = () => {
                     ))}
                 </div>
 
-                <div className="flex absolute top-2 animate-scroll-slow-delayed whitespace-nowrap">
+                <div className="flex absolute top-1 animate-scroll-slow-delayed whitespace-nowrap">
                     {duplicatedBrands.map((brand, index) => (
                         <div
                             key={index}
-                            className="inline-flex items-center justify-center mx-4 w-40 h-24 bg-white rounded-2xl shadow-sm border border-gray-100 hover:shadow-lg hover:-translate-y-1 transition-all duration-300"
+                            className="inline-flex items-center justify-center mx-3 w-32 h-16 bg-white rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-all duration-300"
                         >
                             <img
                                 src={brand.logo}
                                 alt={brand.name}
-                                className="max-w-[80%] max-h-[70%] object-contain transition-all duration-300"
+                                className="max-w-[85%] max-h-[75%] object-contain"
                                 onError={(e) => {
                                     e.target.src = `https://via.placeholder.com/150x80?text=${brand.name}`;
                                 }}
