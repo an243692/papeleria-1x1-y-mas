@@ -102,63 +102,15 @@ app.get('/', (req, res) => {
 });
 
 app.post('/calculate-shipping', async (req, res) => {
-    const { zipCode, total } = req.body;
-
-    // 1. SI TENEMOS API KEY DE SKYDROPX, USARLA REAL
-    if (process.env.SKYDROPX_API_KEY) {
-        try {
-            console.log(`cotizando en Skydropx para CP: ${zipCode}`);
-            const response = await fetch('https://api.skydropx.com/v1/quotations', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Token token=${process.env.SKYDROPX_API_KEY}`
-                },
-                body: JSON.stringify({
-                    zip_to: zipCode,
-                    zip_from: "06500", // TU CP DE ORIGEN (AJUSTAR SI ES OTRO)
-                    parcel: {
-                        weight: 1, // Peso promedio 1kg (puedes calcularlo real sumando items)
-                        height: 10,
-                        width: 10,
-                        length: 10
-                    }
-                })
-            });
-
-            const data = await response.json();
-
-            // Transformar respuesta de Skydropx a nuestro formato
-            let realOptions = data.map(quote => ({
-                id: quote.id,
-                name: `${quote.provider} ${quote.service_level_name}`,
-                price: parseFloat(quote.amount_local),
-                days: `${quote.days} días`
-            })).slice(0, 3); // Tomar solo las 3 mejores opciones
-
-            // Aplicar regla de Envío Gratis si aplica
-            if (parseFloat(total) >= 1500) {
-                realOptions = [{
-                    id: 'free_promo',
-                    name: 'Envío GRATIS (Promoción)',
-                    price: 0,
-                    days: '3-5 días hábiles'
-                }, ...realOptions];
-            }
-
-            return res.json({ options: realOptions });
-
-        } catch (error) {
-            console.error("Error Skydropx:", error);
-            // Si falla, usar simulación (fallback)
-        }
-    }
-
-    // 2. FALLBACK/SIMULACIÓN (Si no hay API Key o falló la red)
-    let shippingOptions = [];
+    const { total } = req.body;
     const orderTotal = parseFloat(total) || 0;
 
-    // Lógica 1: Envío Gratis si compra > $1500
+    let shippingOptions = [];
+
+    // REGLA DE NEGOCIO SIMPLIFICADA
+    // > $1500 = Envío Gratis
+    // < $1500 = Costo Fijo $199
+
     if (orderTotal >= 1500) {
         shippingOptions.push({
             id: 'free_shipping',
@@ -167,47 +119,25 @@ app.post('/calculate-shipping', async (req, res) => {
             days: '3-5 días hábiles'
         });
 
+        // Opción Express opcional (si quisieras cobrar un extra por rapidez incluso con envío gratis)
         shippingOptions.push({
-            id: 'express_discounted',
+            id: 'express_upgrade',
             name: 'Express Prioritario',
             price: 99,
             days: '1-2 días hábiles'
         });
     } else {
-        const isCDMX = zipCode && (zipCode.startsWith('0') || zipCode.startsWith('1'));
-
-        if (isCDMX) {
-            shippingOptions.push({
-                id: 'local_standard',
-                name: 'Envío Local CDMX (Estándar)',
-                price: 89,
-                days: '2-3 días hábiles'
-            });
-            shippingOptions.push({
-                id: 'local_express',
-                name: 'Entrega Express CDMX',
-                price: 149,
-                days: '24 horas'
-            });
-        } else {
-            shippingOptions.push({
-                id: 'national_standard',
-                name: 'Envío Nacional Estándar',
-                price: 180,
-                days: '3-5 días hábiles'
-            });
-            shippingOptions.push({
-                id: 'national_express',
-                name: 'FedEx/DHL Express',
-                price: 350,
-                days: '1-2 días hábiles'
-            });
-        }
+        // Tarifa Plana Nacional
+        shippingOptions.push({
+            id: 'national_flat',
+            name: 'Envío Estándar Nacional',
+            price: 199,
+            days: '3-5 días hábiles'
+        });
     }
 
-    setTimeout(() => {
-        res.json({ options: shippingOptions });
-    }, 500);
+    // Respuesta rápida (sin llamar a APIs externas por ahora)
+    res.json({ options: shippingOptions });
 });
 
 app.post('/create-checkout-session', async (req, res) => {
