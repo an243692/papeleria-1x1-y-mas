@@ -1,4 +1,5 @@
-const API_URL = 'http://localhost:4242'; // Adjust if backend runs on different port
+// Use environment variable or default to Render URL (Production)
+const API_URL = import.meta.env.VITE_API_URL || 'https://papeleria-1x1-y-mas.onrender.com'; // Adjust if backend runs on different port
 
 export const createCheckoutSession = async (items, orderId, userInfo, userId) => {
     try {
