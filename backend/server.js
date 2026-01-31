@@ -3,7 +3,22 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const admin = require('firebase-admin');
-const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+
+// Validate Stripe configuration
+let stripe = null;
+let stripeEnabled = false;
+if (process.env.STRIPE_SECRET_KEY && process.env.STRIPE_SECRET_KEY.startsWith('sk_')) {
+    try {
+        stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+        stripeEnabled = true;
+        console.log('✓ Stripe configurado correctamente');
+    } catch (error) {
+        console.warn('⚠️  Error al inicializar Stripe:', error.message);
+    }
+} else {
+    console.warn('⚠️  STRIPE_SECRET_KEY no configurada o inválida');
+    console.warn('   → El servidor funcionará en MODO SOLO EFECTIVO');
+}
 
 // Inicializar Firebase Admin
 // SE ESPERA QUE LA VARIABLE DE ENTORNO FIREBASE_CREDENTIALS APUNTE AL ARCHIVO JSON
@@ -35,10 +50,10 @@ try {
 
     db = admin.firestore();
     rtdb = admin.database();
-    console.log("✅ Firebase Admin inicializado correctamente.");
+    console.log("Firebase Admin inicializado correctamente.");
 
 } catch (error) {
-    console.warn("⚠️ ADVERTENCIA: No se pudo conectar a Firebase (¿Faltan credenciales?).");
+    console.warn("ADVERTENCIA: No se pudo conectar a Firebase (¿Faltan credenciales?).");
     console.warn("   -> El servidor iniciará en MODO LIMITADO (Solo endpoints que no usen DB).");
 
     // Mocks para que no crashee al llamar a db/rtdb
@@ -53,6 +68,10 @@ const app = express();
 
 // Webhook de Stripe (debe ir antes de express.json() porque necesita el raw body)
 app.post('/stripe/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+    if (!stripeEnabled || !stripe) {
+        return res.status(503).json({ error: 'Stripe no está configurado' });
+    }
+
     const sig = req.headers['stripe-signature'];
     let event;
 
@@ -98,46 +117,127 @@ app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // Endpoints
 app.get('/', (req, res) => {
-    res.json({ message: "Servidor 1x1 y más - Activo" });
+    res.json({
+        message: "Servidor 1x1 y más - Activo",
+        stripeEnabled: stripeEnabled,
+        capabilities: {
+            cardPayments: stripeEnabled,
+            cashPayments: true
+        }
+    });
 });
 
+// Configuración de Skydropx
+const SKYDROPX_API_KEY = process.env.SKYDROPX_API_KEY;
+const SHOP_ADDRESS = {
+    zip: '06060', // CDMX Centro
+    city: 'Cuauhtémoc',
+    province: 'Ciudad de México',
+    country: 'MX'
+};
+
 app.post('/calculate-shipping', async (req, res) => {
-    const { total } = req.body;
+    const { total, zipCode } = req.body;
     const orderTotal = parseFloat(total) || 0;
 
+    // Default fallback options (Regla de Negocio Simplificada)
     let shippingOptions = [];
 
-    // REGLA DE NEGOCIO SIMPLIFICADA
-    // > $1500 = Envío Gratis
-    // < $1500 = Costo Fijo $199
+    // NOTA: Se eliminó la tarifa fija de $199 para forzar el uso de Skydropx.
+    // Si Skydropx falla, el usuario no verá opciones de envío (correcto para evitar cobros erróneos).
 
-    if (orderTotal >= 1500) {
-        shippingOptions.push({
-            id: 'free_shipping',
-            name: 'Envío GRATIS (Promoción)',
-            price: 0,
-            days: '3-5 días hábiles'
-        });
-
-        // Opción Express opcional (si quisieras cobrar un extra por rapidez incluso con envío gratis)
-        shippingOptions.push({
-            id: 'express_upgrade',
-            name: 'Express Prioritario',
-            price: 99,
-            days: '1-2 días hábiles'
-        });
-    } else {
-        // Tarifa Plana Nacional
-        shippingOptions.push({
-            id: 'national_flat',
-            name: 'Envío Estándar Nacional',
-            price: 199,
-            days: '3-5 días hábiles'
-        });
+    // SI NO hay API Key o NO hay CP destino, devolver fallback
+    if (!SKYDROPX_API_KEY || !zipCode || zipCode.length < 5) {
+        console.log('Using fallback shipping rates (No API Key or Zip)');
+        return res.json({ options: shippingOptions });
     }
 
-    // Respuesta rápida (sin llamar a APIs externas por ahora)
-    res.json({ options: shippingOptions });
+    try {
+        console.log(`Cotizando envío con Skydropx para CP: ${zipCode}...`);
+
+        // Estimación de paquete (1kg base + variable pequeña)
+        // En un futuro, sumar pesos reales de productos si existen en DB
+        const estimatedWeight = 2; // 2kg promedio
+
+        const response = await fetch('https://api.skydropx.com/v1/shipments', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Token token=${SKYDROPX_API_KEY}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                address_from: SHOP_ADDRESS,
+                address_to: {
+                    zip: zipCode,
+                    country: 'MX'
+                },
+                parcels: [{
+                    weight: estimatedWeight,
+                    distance_unit: 'CM',
+                    mass_unit: 'KG',
+                    height: 15,
+                    width: 20,
+                    length: 20
+                }]
+            })
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('Skydropx API Error:', response.status, errorText);
+            // Fallback silencioso
+            return res.json({ options: shippingOptions });
+        }
+
+        const data = await response.json();
+
+        // Transformar respuesta de Skydropx a nuestro formato
+        // La API de skydropx devuelve 'included_shipping_rates' o 'data.included_shipping_rates' 
+        // dependiendo de la versión/endpoint exacto. Revisamos ambos.
+        const rates = data.included_shipping_rates || data.data?.included_shipping_rates || [];
+
+        if (rates.length > 0) {
+            // Mapear y filtrar las mejores opciones
+            // Queremos: 1 opción económica y 1 opción rápida
+
+            const skydropxOptions = rates.map(rate => ({
+                id: `skydropx_${rate.id}`,
+                name: `${rate.provider} - ${rate.service_level_name}`,
+                price: parseFloat(rate.total_pricing) + 20, // Agregar pequeño margen operativo ($20)
+                days: `${rate.days} días hábiles`,
+                original_rate: rate // Guardar data original por si acaso
+            }));
+
+            // Ordenar por precio
+            skydropxOptions.sort((a, b) => a.price - b.price);
+
+            // Seleccionar la más barata y la más rápida
+            const cheapest = skydropxOptions[0];
+            const fastest = skydropxOptions.sort((a, b) => parseInt(a.days) - parseInt(b.days))[0];
+
+            shippingOptions = [cheapest];
+            if (fastest.id !== cheapest.id) {
+                shippingOptions.push(fastest);
+            }
+
+            // APLICAR REGLA DE ENVÍO GRATIS SOBRE LAS TARIFAS REALES
+            if (orderTotal >= 1500) {
+                shippingOptions = shippingOptions.map(opt => {
+                    if (opt.id === cheapest.id) {
+                        return { ...opt, price: 0, name: `${opt.name} (GRATIS)` };
+                    }
+                    return opt;
+                });
+            }
+        }
+
+        res.json({ options: shippingOptions });
+
+    } catch (error) {
+        console.error('Error calculando envío con Skydropx:', error);
+        // Fallback en caso de error
+        res.json({ options: shippingOptions });
+    }
 });
 
 app.post('/create-checkout-session', async (req, res) => {
@@ -161,6 +261,14 @@ app.post('/create-checkout-session', async (req, res) => {
         // If it's cash, we don't need Stripe
         if (isCash) {
             return res.json({ success: true, message: 'Orden en efectivo registrada' });
+        }
+
+        // Check if Stripe is enabled for card payments
+        if (!stripeEnabled || !stripe) {
+            return res.status(400).json({
+                error: 'Los pagos con tarjeta no están disponibles en este momento. Por favor, selecciona pago en efectivo.',
+                cashOnly: true
+            });
         }
 
         const lineItems = items.map(item => {
@@ -205,11 +313,11 @@ app.post('/create-checkout-session', async (req, res) => {
     }
 });
 
-// ✅ OPTIMIZACIÓN: Reducir frecuencia de limpieza de 5 min a 30 min
+//  OPTIMIZACIÓN: Reducir frecuencia de limpieza de 5 min a 30 min
 // ANTES: 288 ejecuciones/día × 1,000 lecturas = 288,000 lecturas/día
 // DESPUÉS: 48 ejecuciones/día × 100 lecturas = 4,800 lecturas/día
 // AHORRO: 98% de reducción en lecturas
-const CLEANUP_INTERVAL = 30 * 60 * 1000; // ✅ 30 minutos (antes: 5 minutos)
+const CLEANUP_INTERVAL = 30 * 60 * 1000; // 30 minutos (antes: 5 minutos)
 const EXPIRATION_TIME = 30 * 60 * 1000; // 30 minutos
 
 async function cleanupAbandonedOrders() {
@@ -217,10 +325,10 @@ async function cleanupAbandonedOrders() {
     const expirationThreshold = now - EXPIRATION_TIME;
     const last24Hours = now - (24 * 60 * 60 * 1000);
 
-    console.log(`[${new Date().toLocaleTimeString()}] 🧹 Iniciando limpieza de pedidos abandonados...`);
+    console.log(`[${new Date().toLocaleTimeString()}] Iniciando limpieza de pedidos abandonados...`);
 
     try {
-        // ✅ OPTIMIZACIÓN: Solo leer órdenes de las últimas 24 horas
+        //OPTIMIZACIÓN: Solo leer órdenes de las últimas 24 horas
         // En lugar de leer TODAS las órdenes (1,000+), solo lee las recientes (~100)
         const snapshot = await rtdb.ref('orders')
             .orderByChild('timestamp')
@@ -258,14 +366,14 @@ async function cleanupAbandonedOrders() {
             console.log('✓ No se encontraron pedidos abandonados.');
         }
     } catch (error) {
-        console.error('❌ Error en tarea de limpieza:', error);
+        console.error('Error en tarea de limpieza:', error);
     }
 }
 
 // Ejecutar limpieza inmediatamente al iniciar el servidor
-console.log('🚀 Iniciando sistema de limpieza automática de pedidos abandonados...');
-console.log(`⏱️  Frecuencia optimizada: cada ${CLEANUP_INTERVAL / 60000} minutos`);
-console.log(`⏱️  Expiración: ${EXPIRATION_TIME / 60000} minutos`);
+console.log('Iniciando sistema de limpieza automática de pedidos abandonados...');
+console.log(`Frecuencia optimizada: cada ${CLEANUP_INTERVAL / 60000} minutos`);
+console.log(`Expiración: ${EXPIRATION_TIME / 60000} minutos`);
 setTimeout(cleanupAbandonedOrders, 10000); // Primera limpieza después de 10 segundos
 
 // ✅ Ejecutar limpieza cada 30 minutos (antes: cada 5 minutos)
@@ -273,6 +381,6 @@ setInterval(cleanupAbandonedOrders, CLEANUP_INTERVAL);
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
-    console.log(`✅ Servidor corriendo en puerto ${PORT}`);
-    console.log(`✅ Optimizaciones de Firebase activas`);
+    console.log(`Servidor corriendo en puerto ${PORT}`);
+    console.log(`Optimizaciones de Firebase activas`);
 });
