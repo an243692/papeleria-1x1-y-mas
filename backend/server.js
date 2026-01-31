@@ -153,7 +153,9 @@ app.post('/calculate-shipping', async (req, res) => {
     }
 
     try {
-        console.log(`Cotizando envío con Skydropx para CP: ${zipCode}...`);
+        // DEBUG: Verificar qué clave está usando el servidor
+        const keyDebug = SKYDROPX_API_KEY ? `${SKYDROPX_API_KEY.substring(0, 5)}...` : 'undefined';
+        console.log(`Cotizando envío con Skydropx para CP: ${zipCode}. Key usada: ${keyDebug}`);
 
         // Estimación de paquete (1kg base + variable pequeña)
         // En un futuro, sumar pesos reales de productos si existen en DB
@@ -184,7 +186,8 @@ app.post('/calculate-shipping', async (req, res) => {
 
         if (!response.ok) {
             const errorText = await response.text();
-            console.error('Skydropx API Error:', response.status, errorText);
+            console.error('Skydropx API Error:', response.status, response.statusText);
+            console.error('Detalle error:', errorText);
             // Fallback silencioso
             return res.json({ options: shippingOptions });
         }
