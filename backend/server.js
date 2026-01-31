@@ -153,42 +153,52 @@ app.post('/calculate-shipping', async (req, res) => {
     }
 
     try {
-        // DEBUG: Verificar qué clave está usando el servidor
-        const keyDebug = SKYDROPX_API_KEY ? `${SKYDROPX_API_KEY.substring(0, 5)}...` : 'undefined';
-        console.log(`Cotizando envío con Skydropx para CP: ${zipCode}. Key usada: ${keyDebug}`);
+        // Limpiar clave de espacios
+        const cleanKey = SKYDROPX_API_KEY.trim();
 
-        // Estimación de paquete (1kg base + variable pequeña)
-        // En un futuro, sumar pesos reales de productos si existen en DB
-        const estimatedWeight = 2; // 2kg promedio
+        // DEBUG: Verificar clave (seguro)
+        const keyDebug = cleanKey ? `${cleanKey.substring(0, 5)}... (Len: ${cleanKey.length})` : 'undefined';
+        console.log(`Cotizando envío con Skydropx para CP: ${zipCode}. Key: ${keyDebug}`);
 
-        const response = await fetch('https://api.skydropx.com/v1/shipments', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Token token=${SKYDROPX_API_KEY}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                address_from: SHOP_ADDRESS,
-                address_to: {
-                    zip: zipCode,
-                    country: 'MX'
+        // Función helper para hacer el request
+        const fetchRates = async (baseUrl) => {
+            return await fetch(`${baseUrl}/v1/shipments`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Token token=${cleanKey}`,
+                    'Content-Type': 'application/json'
                 },
-                parcels: [{
-                    weight: estimatedWeight,
-                    distance_unit: 'CM',
-                    mass_unit: 'KG',
-                    height: 15,
-                    width: 20,
-                    length: 20
-                }]
-            })
-        });
+                body: JSON.stringify({
+                    address_from: SHOP_ADDRESS,
+                    address_to: {
+                        zip: zipCode,
+                        country: 'MX'
+                    },
+                    parcels: [{
+                        weight: 2, // 2kg estimado
+                        distance_unit: 'CM',
+                        mass_unit: 'KG',
+                        height: 15,
+                        width: 20,
+                        length: 20
+                    }]
+                })
+            });
+        };
+
+        // 1. Intentar Producción
+        let response = await fetchRates('https://api.skydropx.com');
+
+        // 2. Si da 401 (Bad Credentials), intentar Demo/Sandbox automáticamente
+        if (response.status === 401) {
+            console.warn('⚠️ 401 en Producción. Intentando endpoint de Demo/Sandbox...');
+            response = await fetchRates('https://api-demo.skydropx.com');
+        }
 
         if (!response.ok) {
             const errorText = await response.text();
-            console.error('Skydropx API Error:', response.status, response.statusText);
-            console.error('Detalle error:', errorText);
-            // Fallback silencioso
+            console.error('Skydropx API Error (Final):', response.status, response.statusText);
+            console.error('Body:', errorText);
             return res.json({ options: shippingOptions });
         }
 
